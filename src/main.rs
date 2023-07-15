@@ -7,6 +7,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use lazy_static::lazy_static;
 use std::sync::Mutex;
+use std::collections::VecDeque;
 
 pub mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
@@ -14,6 +15,7 @@ pub mod transit {
 
 lazy_static! {
     static ref ID: Mutex<u32> = Mutex::new(1_u32);
+    static ref QUEUE: Mutex<VecDeque<Feed>> = Mutex::new(VecDeque::new());
 }
 
 #[tokio::main]
@@ -44,7 +46,7 @@ async fn status_handler() -> Json<Status> {
     })
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct Feed {
     id: u32,
     name: String,
@@ -62,7 +64,7 @@ struct CreateFeed {
 #[axum_macros::debug_handler]
 async fn feed_post_handler(
     Json(payload): Json<CreateFeed>,
-) -> (StatusCode, Json<Feed>) {
+    ) -> (StatusCode, Json<Feed>) {
     let feed = Feed {
         id: *(ID.lock().unwrap()),
         name: payload.name,
@@ -71,6 +73,8 @@ async fn feed_post_handler(
     };
 
     *(ID.lock().unwrap()) += 1;
+
+    QUEUE.lock().unwrap().push_back(feed.clone());
 
     (StatusCode::CREATED, Json(feed))
 }
