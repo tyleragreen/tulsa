@@ -13,7 +13,7 @@ pub mod transit {
 }
 
 lazy_static! {
-    static ref ID: Mutex<u32> = Mutex::new(1 as u32);
+    static ref ID: Mutex<u32> = Mutex::new(1_u32);
 }
 
 #[tokio::main]
@@ -22,8 +22,8 @@ async fn main() {
     dbg!(feed);
 
     let app = Router::new()
-        .route("/", get(get_handler))
-        .route("/", post(post_handler));
+        .route("/", get(status_handler))
+        .route("/feed", post(feed_post_handler));
 
     let address: &str = "0.0.0.0:3000";
     println!("Starting server on {}.", address);
@@ -33,8 +33,15 @@ async fn main() {
         .unwrap();
 }
 
-async fn get_handler() -> String {
-    format!("Hello, World!")
+#[derive(Serialize)]
+struct Status {
+    status: String,
+}
+
+async fn status_handler() -> Json<Status> {
+    Json(Status{
+        status: "Ok".to_string()
+    })
 }
 
 #[derive(Serialize)]
@@ -53,7 +60,7 @@ struct CreateFeed {
 }
 
 #[axum_macros::debug_handler]
-async fn post_handler(
+async fn feed_post_handler(
     Json(payload): Json<CreateFeed>,
 ) -> (StatusCode, Json<Feed>) {
     let feed = Feed {
