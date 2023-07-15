@@ -9,6 +9,7 @@ edition = "2021"
 axum = "0.6.18"
 axum-macros = "0.3.7"
 bytes = "0.4"
+lazy_static = "1.4.0"
 prost = "0.5"
 serde = { version = "1.0.171", features = ["derive"] }
 tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }

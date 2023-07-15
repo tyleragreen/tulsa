@@ -5,9 +5,15 @@ use axum::{
     Router
 };
 use serde::{Deserialize, Serialize};
+use lazy_static::lazy_static;
+use std::sync::Mutex;
 
 pub mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
+}
+
+lazy_static! {
+    static ref ID: Mutex<u32> = Mutex::new(1 as u32);
 }
 
 #[tokio::main]
@@ -31,8 +37,16 @@ async fn get_handler() -> String {
     format!("Hello, World!")
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 struct Feed {
+    id: u32,
+    name: String,
+    url: String,
+    frequency: u32,
+}
+
+#[derive(Deserialize)]
+struct CreateFeed {
     name: String,
     url: String,
     frequency: u32,
@@ -40,13 +54,16 @@ struct Feed {
 
 #[axum_macros::debug_handler]
 async fn post_handler(
-    Json(payload): Json<Feed>,
+    Json(payload): Json<CreateFeed>,
 ) -> (StatusCode, Json<Feed>) {
     let feed = Feed {
+        id: *(ID.lock().unwrap()),
         name: payload.name,
         url: payload.url,
         frequency: payload.frequency
     };
+
+    *(ID.lock().unwrap()) += 1;
 
     (StatusCode::CREATED, Json(feed))
 }
