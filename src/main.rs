@@ -13,15 +13,20 @@ pub mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
 }
 
+mod scheduler;
+mod feed;
+
 lazy_static! {
     static ref ID: Mutex<u32> = Mutex::new(1_u32);
-    static ref QUEUE: Mutex<VecDeque<Feed>> = Mutex::new(VecDeque::new());
+    static ref QUEUE: Mutex<VecDeque<feed::Feed>> = Mutex::new(VecDeque::new());
 }
 
 #[tokio::main]
 async fn main() {
     let feed = transit::FeedMessage::default();
     dbg!(feed);
+
+    scheduler::init();
 
     let app = Router::new()
         .route("/", get(status_handler))
@@ -42,16 +47,8 @@ struct Status {
 
 async fn status_handler() -> Json<Status> {
     Json(Status{
-        status: "Ok".to_string()
+        status: "OK".to_string()
     })
-}
-
-#[derive(Serialize, Clone)]
-struct Feed {
-    id: u32,
-    name: String,
-    url: String,
-    frequency: u32,
 }
 
 #[derive(Deserialize)]
@@ -64,8 +61,8 @@ struct CreateFeed {
 #[axum_macros::debug_handler]
 async fn feed_post_handler(
     Json(payload): Json<CreateFeed>,
-    ) -> (StatusCode, Json<Feed>) {
-    let feed = Feed {
+    ) -> (StatusCode, Json<feed::Feed>) {
+    let feed = feed::Feed {
         id: *(ID.lock().unwrap()),
         name: payload.name,
         url: payload.url,
