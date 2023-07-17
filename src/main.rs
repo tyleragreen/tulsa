@@ -38,8 +38,11 @@ fn app() -> Router {
     };
     Router::new()
         .route("/", get(status_handler))
-        .route("/feed/:key", get(feed_get_handler))
-        .route("/feed", post(feed_post_handler))
+        .route("/feed/:key", get(get_handler)
+               .put(put_handler)
+               .delete(delete_handler))
+        .route("/feed", post(post_handler)
+               .get(list_handler))
         .with_state(state)
 }
 
@@ -77,7 +80,7 @@ struct CreateFeed {
 }
 
 #[axum_macros::debug_handler]
-async fn feed_post_handler(
+async fn post_handler(
     state: State<AppState>,
     Json(payload): Json<CreateFeed>,
     ) -> (StatusCode, Json<feed::Feed>) {
@@ -97,8 +100,7 @@ async fn feed_post_handler(
     (StatusCode::CREATED, Json(feed))
 }
 
-#[axum_macros::debug_handler]
-async fn feed_get_handler(
+async fn get_handler(
     path: Path<String>,
     state: State<AppState>,
     ) -> impl IntoResponse {
@@ -110,4 +112,24 @@ async fn feed_get_handler(
     } else {
         Err(StatusCode::NOT_FOUND)
     }
+}
+
+async fn put_handler(
+    _path: Path<String>,
+    _state: State<AppState>,
+    ) -> impl IntoResponse {
+    unimplemented!()
+}
+
+async fn delete_handler(
+    _path: Path<String>,
+    _state: State<AppState>,
+    ) -> impl IntoResponse {
+    unimplemented!()
+}
+
+async fn list_handler(
+    _state: State<AppState>,
+    ) -> impl IntoResponse {
+    unimplemented!()
 }
