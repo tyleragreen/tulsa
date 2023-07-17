@@ -1,12 +1,13 @@
 use axum::{
     routing::{get,post},
+    extract::State,
     http::StatusCode,
     Json,
     Router
 };
 use serde::{Deserialize, Serialize};
 use lazy_static::lazy_static;
-use std::sync::Mutex;
+use std::sync::{Arc,Mutex,RwLock};
 use std::collections::VecDeque;
 
 pub mod transit {
@@ -17,9 +18,14 @@ mod scheduler;
 mod feed;
 
 lazy_static! {
-    static ref ID: Mutex<u32> = Mutex::new(1_u32);
     static ref QUEUE: Mutex<VecDeque<feed::Feed>> = Mutex::new(VecDeque::new());
 }
+
+#[derive(Clone)]
+struct AppState {
+    feed_id: Arc<RwLock<u32>>,
+}
+
 
 #[tokio::main]
 async fn main() {
@@ -28,9 +34,13 @@ async fn main() {
 
     scheduler::init();
 
+    let state = AppState {
+        feed_id: Arc::new(RwLock::new(1)),
+    };
     let app = Router::new()
         .route("/", get(status_handler))
-        .route("/feed", post(feed_post_handler));
+        .route("/feed", post(feed_post_handler))
+        .with_state(state);
 
     let address: &str = "0.0.0.0:3000";
     println!("Starting server on {}.", address);
@@ -60,17 +70,17 @@ struct CreateFeed {
 
 #[axum_macros::debug_handler]
 async fn feed_post_handler(
+    State(state): State<AppState>,
     Json(payload): Json<CreateFeed>,
     ) -> (StatusCode, Json<feed::Feed>) {
     let feed = feed::Feed {
-        id: *(ID.lock().unwrap()),
+        id: *(state.feed_id.read().unwrap()),
         name: payload.name,
         url: payload.url,
         frequency: payload.frequency
     };
 
-    *(ID.lock().unwrap()) += 1;
-
+    *(state.feed_id.write().unwrap()) += 1;
     QUEUE.lock().unwrap().push_back(feed.clone());
 
     (StatusCode::CREATED, Json(feed))
