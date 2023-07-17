@@ -133,3 +133,26 @@ async fn list_handler(
     ) -> impl IntoResponse {
     unimplemented!()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt; // for `oneshot`
+
+    #[tokio::test]
+    async fn status() {
+        let response = app()
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        assert_eq!(&body[..], b"{\"status\":\"OK\"}");
+    }
+}
