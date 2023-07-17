@@ -1,6 +1,7 @@
 use axum::{
     routing::{get,post},
-    extract::State,
+    extract::{Path,State},
+    response::IntoResponse,
     http::StatusCode,
     Json,
     Router
@@ -8,7 +9,10 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use lazy_static::lazy_static;
 use std::sync::{Arc,Mutex,RwLock};
-use std::collections::VecDeque;
+use std::collections::{
+    VecDeque,
+    HashMap
+};
 
 pub mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
@@ -24,8 +28,20 @@ lazy_static! {
 #[derive(Clone)]
 struct AppState {
     feed_id: Arc<RwLock<u32>>,
+    db: Arc<RwLock<HashMap<u32, feed::Feed>>>,
 }
 
+fn app() -> Router {
+    let state = AppState {
+        feed_id: Arc::new(RwLock::new(1)),
+        db: Arc::new(RwLock::new(HashMap::new())),
+    };
+    Router::new()
+        .route("/", get(status_handler))
+        .route("/feed/:key", get(feed_get_handler))
+        .route("/feed", post(feed_post_handler))
+        .with_state(state)
+}
 
 #[tokio::main]
 async fn main() {
@@ -34,18 +50,10 @@ async fn main() {
 
     scheduler::init();
 
-    let state = AppState {
-        feed_id: Arc::new(RwLock::new(1)),
-    };
-    let app = Router::new()
-        .route("/", get(status_handler))
-        .route("/feed", post(feed_post_handler))
-        .with_state(state);
-
     let address: &str = "0.0.0.0:3000";
     println!("Starting server on {}.", address);
     axum::Server::bind(&address.parse().unwrap())
-        .serve(app.into_make_service())
+        .serve(app().into_make_service())
         .await
         .unwrap();
 }
@@ -70,18 +78,36 @@ struct CreateFeed {
 
 #[axum_macros::debug_handler]
 async fn feed_post_handler(
-    State(state): State<AppState>,
+    state: State<AppState>,
     Json(payload): Json<CreateFeed>,
     ) -> (StatusCode, Json<feed::Feed>) {
+
+    let new_id = *(state.feed_id.read().unwrap());
     let feed = feed::Feed {
-        id: *(state.feed_id.read().unwrap()),
+        id: new_id,
         name: payload.name,
         url: payload.url,
         frequency: payload.frequency
     };
 
+    state.db.write().unwrap().insert(new_id, feed.clone());
     *(state.feed_id.write().unwrap()) += 1;
     QUEUE.lock().unwrap().push_back(feed.clone());
 
     (StatusCode::CREATED, Json(feed))
+}
+
+#[axum_macros::debug_handler]
+async fn feed_get_handler(
+    path: Path<String>,
+    state: State<AppState>,
+    ) -> impl IntoResponse {
+    let db = state.db.read().unwrap();
+    let feed_id = path.parse().unwrap();
+
+    if let Some(feed) = db.get(&feed_id).cloned() {
+        Ok(Json(feed))
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
 }
