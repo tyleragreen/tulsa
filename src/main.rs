@@ -84,15 +84,15 @@ async fn post_handler(
     state: State<AppState>,
     Json(payload): Json<CreateFeed>,
     ) -> (StatusCode, Json<feed::Feed>) {
-    let new_id = *(state.feed_id.read().unwrap());
+    let id = *(state.feed_id.read().unwrap());
     let feed = feed::Feed {
-        id: new_id,
+        id,
         name: payload.name,
         url: payload.url,
         frequency: payload.frequency
     };
 
-    state.db.write().unwrap().insert(new_id, feed.clone());
+    state.db.write().unwrap().insert(id, feed.clone());
     *(state.feed_id.write().unwrap()) += 1;
     QUEUE.lock().unwrap().push_back(feed.clone());
 
@@ -114,17 +114,46 @@ async fn get_handler(
 }
 
 async fn put_handler(
-    _path: Path<String>,
-    _state: State<AppState>,
+    path: Path<String>,
+    state: State<AppState>,
+    Json(payload): Json<CreateFeed>,
     ) -> impl IntoResponse {
-    unimplemented!()
+    let id = path.parse().unwrap();
+    let feed = feed::Feed {
+        id,
+        name: payload.name,
+        url: payload.url,
+        frequency: payload.frequency
+    };
+
+    state.db.write().unwrap().insert(id, feed.clone());
+    QUEUE.lock().unwrap().push_back(feed.clone());
+
+    Json(feed)
 }
 
 async fn delete_handler(
-    _path: Path<String>,
-    _state: State<AppState>,
+    path: Path<String>,
+    state: State<AppState>,
     ) -> impl IntoResponse {
-    unimplemented!()
+    let id = path.parse().unwrap();
+    let mut db = state.db.write().unwrap();
+
+    if !db.contains_key(&id) {
+        return (StatusCode::NOT_FOUND, Json(""))
+    }
+
+    let feed = feed::Feed {
+        id,
+        name: "".to_string(),
+        url: "".to_string(),
+        frequency: 0
+    };
+
+    db.remove(&id);
+    QUEUE.lock().unwrap().push_back(feed.clone());
+
+    (StatusCode::NO_CONTENT, Json(""))
 }
 
 async fn list_handler(
@@ -196,12 +225,17 @@ mod api_tests {
     }
 
     #[tokio::test]
-    async fn get_list() {
+    async fn full_api_flow() {
         let addr: &str = "0.0.0.0:3000";
         let input = CreateFeed {
             name: "Name".to_string(),
             url: "http".to_string(),
             frequency: 10
+        };
+        let input_new = CreateFeed {
+            name: "Name".to_string(),
+            url: "http".to_string(),
+            frequency: 20
         };
 
         tokio::spawn(async move {
@@ -259,5 +293,71 @@ mod api_tests {
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         let f: Vec<Feed> = serde_json::from_slice(&body).unwrap();
         assert_eq!(f.len(), 1);
+
+        let response = client
+            .request(
+                Request::builder()
+                    .method(http::Method::PUT)
+                    .uri("http://localhost:3000/feed/1")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(input_new))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response = client
+            .request(
+                Request::builder()
+                    .method(http::Method::GET)
+                    .uri("http://localhost:3000/feed/1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let f: Feed = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(f.id, 1);
+        assert_eq!(f.name, "Name");
+        assert_eq!(f.url, "http");
+        assert_eq!(f.frequency, 20);
+
+        let response = client
+            .request(
+                Request::builder()
+                    .method(http::Method::DELETE)
+                    .uri("http://localhost:3000/feed/1")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+
+        let response = client
+            .request(
+                Request::builder()
+                    .uri(format!("http://localhost:3000/feed"))
+                    .body(hyper::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let f: Vec<Feed> = serde_json::from_slice(&body).unwrap();
+        assert_eq!(f.len(), 0);
+        assert_eq!(&body[..], b"[]");
     }
 }
