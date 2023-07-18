@@ -1,25 +1,21 @@
 use axum::{
-    routing::{get,post},
-    extract::{Path,State},
-    response::IntoResponse,
+    extract::{Path, State},
     http::StatusCode,
-    Json,
-    Router
+    response::IntoResponse,
+    routing::{get, post},
+    Json, Router,
 };
-use serde::{Deserialize, Serialize};
 use lazy_static::lazy_static;
-use std::sync::{Arc,Mutex,RwLock};
-use std::collections::{
-    VecDeque,
-    HashMap
-};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
 
 pub mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
 }
 
-mod scheduler;
 mod feed;
+mod scheduler;
 
 lazy_static! {
     static ref QUEUE: Mutex<VecDeque<feed::Feed>> = Mutex::new(VecDeque::new());
@@ -38,11 +34,11 @@ fn app() -> Router {
     };
     Router::new()
         .route("/", get(status_handler))
-        .route("/feed/:key", get(get_handler)
-               .put(put_handler)
-               .delete(delete_handler))
-        .route("/feed", post(post_handler)
-               .get(list_handler))
+        .route(
+            "/feed/:key",
+            get(get_handler).put(put_handler).delete(delete_handler),
+        )
+        .route("/feed", post(post_handler).get(list_handler))
         .with_state(state)
 }
 
@@ -67,8 +63,8 @@ struct Status {
 }
 
 async fn status_handler() -> Json<Status> {
-    Json(Status{
-        status: "OK".to_string()
+    Json(Status {
+        status: "OK".to_string(),
     })
 }
 
@@ -83,13 +79,13 @@ struct CreateFeed {
 async fn post_handler(
     state: State<AppState>,
     Json(payload): Json<CreateFeed>,
-    ) -> (StatusCode, Json<feed::Feed>) {
+) -> (StatusCode, Json<feed::Feed>) {
     let id = *(state.feed_id.read().unwrap());
     let feed = feed::Feed {
         id,
         name: payload.name,
         url: payload.url,
-        frequency: payload.frequency
+        frequency: payload.frequency,
     };
 
     state.db.write().unwrap().insert(id, feed.clone());
@@ -99,10 +95,7 @@ async fn post_handler(
     (StatusCode::CREATED, Json(feed))
 }
 
-async fn get_handler(
-    path: Path<String>,
-    state: State<AppState>,
-    ) -> impl IntoResponse {
+async fn get_handler(path: Path<String>, state: State<AppState>) -> impl IntoResponse {
     let db = state.db.read().unwrap();
     let feed_id = path.parse().unwrap();
 
@@ -117,13 +110,13 @@ async fn put_handler(
     path: Path<String>,
     state: State<AppState>,
     Json(payload): Json<CreateFeed>,
-    ) -> impl IntoResponse {
+) -> impl IntoResponse {
     let id = path.parse().unwrap();
     let feed = feed::Feed {
         id,
         name: payload.name,
         url: payload.url,
-        frequency: payload.frequency
+        frequency: payload.frequency,
     };
 
     state.db.write().unwrap().insert(id, feed.clone());
@@ -132,22 +125,19 @@ async fn put_handler(
     Json(feed)
 }
 
-async fn delete_handler(
-    path: Path<String>,
-    state: State<AppState>,
-    ) -> impl IntoResponse {
+async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl IntoResponse {
     let id = path.parse().unwrap();
     let mut db = state.db.write().unwrap();
 
     if !db.contains_key(&id) {
-        return (StatusCode::NOT_FOUND, Json(""))
+        return (StatusCode::NOT_FOUND, Json(""));
     }
 
     let feed = feed::Feed {
         id,
         name: "".to_string(),
         url: "".to_string(),
-        frequency: 0
+        frequency: 0,
     };
 
     db.remove(&id);
@@ -156,9 +146,7 @@ async fn delete_handler(
     (StatusCode::NO_CONTENT, Json(""))
 }
 
-async fn list_handler(
-    state: State<AppState>,
-    ) -> impl IntoResponse {
+async fn list_handler(state: State<AppState>) -> impl IntoResponse {
     let db = state.db.read().unwrap();
     let feeds: Vec<feed::Feed> = db.values().cloned().collect();
     Json(feeds)
@@ -177,7 +165,7 @@ mod api_tests {
 
     impl From<CreateFeed> for Body {
         fn from(feed: CreateFeed) -> Self {
-            return Body::from(serde_json::to_string(&feed).unwrap())
+            return Body::from(serde_json::to_string(&feed).unwrap());
         }
     }
 
@@ -199,7 +187,7 @@ mod api_tests {
         let input = CreateFeed {
             name: "Name".to_string(),
             url: "http".to_string(),
-            frequency: 10
+            frequency: 10,
         };
         let response = app()
             .oneshot(
@@ -208,7 +196,7 @@ mod api_tests {
                     .uri("/feed")
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                     .body(Body::from(input))
-            .unwrap(),
+                    .unwrap(),
             )
             .await
             .unwrap();
@@ -230,12 +218,12 @@ mod api_tests {
         let input = CreateFeed {
             name: "Name".to_string(),
             url: "http".to_string(),
-            frequency: 10
+            frequency: 10,
         };
         let input_new = CreateFeed {
             name: "Name".to_string(),
             url: "http".to_string(),
-            frequency: 20
+            frequency: 20,
         };
 
         tokio::spawn(async move {
