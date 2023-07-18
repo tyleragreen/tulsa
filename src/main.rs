@@ -129,9 +129,17 @@ async fn delete_handler(
 }
 
 async fn list_handler(
-    _state: State<AppState>,
+    state: State<AppState>,
     ) -> impl IntoResponse {
-    unimplemented!()
+    let db = state.db.read().unwrap();
+    let feeds = db.values().map(|f| f.clone());
+
+    // there's gotta be a cleaner way to convert the values to a JSON output
+    let mut output: Vec<feed::Feed> = Vec::new();
+    for feed in feeds {
+        output.insert(0, feed);
+    }
+    Json(output)
 }
 
 #[cfg(test)]
@@ -174,10 +182,10 @@ mod api_tests {
         let response = app()
             .oneshot(
                 Request::builder()
-                .method(http::Method::POST)
-                .uri("/feed")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(input))
+                    .method(http::Method::POST)
+                    .uri("/feed")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(input))
             .unwrap(),
             )
             .await
@@ -192,5 +200,71 @@ mod api_tests {
         assert_eq!(f.name, "Name");
         assert_eq!(f.url, "http");
         assert_eq!(f.frequency, 10);
+    }
+
+    #[tokio::test]
+    async fn get_list() {
+        let addr: &str = "0.0.0.0:3000";
+        let input = CreateFeed {
+            name: "Name".to_string(),
+            url: "http".to_string(),
+            frequency: 10
+        };
+
+        tokio::spawn(async move {
+            axum::Server::bind(&addr.parse().unwrap())
+                .serve(app().into_make_service())
+                .await
+                .unwrap();
+        });
+
+        let client = hyper::Client::new();
+
+        let response = client
+            .request(
+                Request::builder()
+                    .uri(format!("http://localhost:3000/feed"))
+                    .body(hyper::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let f: Vec<Feed> = serde_json::from_slice(&body).unwrap();
+        assert_eq!(f.len(), 0);
+        assert_eq!(&body[..], b"[]");
+
+        let response = client
+            .request(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("http://localhost:3000/feed")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(input))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::CREATED);
+
+        let response = client
+            .request(
+                Request::builder()
+                    .uri(format!("http://localhost:3000/feed"))
+                    .body(hyper::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let f: Vec<Feed> = serde_json::from_slice(&body).unwrap();
+        assert_eq!(f.len(), 1);
     }
 }

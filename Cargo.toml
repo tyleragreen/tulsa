@@ -9,7 +9,7 @@ edition = "2021"
 axum = "0.6.18"
 axum-macros = "0.3.7"
 bytes = "0.4"
-hyper = "0.14.27"
+hyper = { version = "0.14.27", features = ["client"] }
 lazy_static = "1.4.0"
 mime = "0.3.17"
 prost = "0.5"
