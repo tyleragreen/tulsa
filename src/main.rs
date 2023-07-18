@@ -96,10 +96,16 @@ async fn post_handler(
 }
 
 async fn get_handler(path: Path<String>, state: State<AppState>) -> impl IntoResponse {
-    let db = state.db.read().unwrap();
-    let feed_id = path.parse().unwrap();
+    let id: u32 = match path.parse() {
+        Ok(i) => i,
+        Err(_) => {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    };
 
-    if let Some(feed) = db.get(&feed_id).cloned() {
+    let db = state.db.read().unwrap();
+
+    if let Some(feed) = db.get(&id).cloned() {
         Ok(Json(feed))
     } else {
         Err(StatusCode::NOT_FOUND)
@@ -111,7 +117,12 @@ async fn put_handler(
     state: State<AppState>,
     Json(payload): Json<CreateFeed>,
 ) -> impl IntoResponse {
-    let id = path.parse().unwrap();
+    let id: u32 = match path.parse() {
+        Ok(i) => i,
+        Err(_) => {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    };
     let feed = feed::Feed {
         id,
         name: payload.name,
@@ -122,11 +133,16 @@ async fn put_handler(
     state.db.write().unwrap().insert(id, feed.clone());
     QUEUE.lock().unwrap().push_back(feed.clone());
 
-    Json(feed)
+    Ok(Json(feed))
 }
 
 async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl IntoResponse {
-    let id = path.parse().unwrap();
+    let id: u32 = match path.parse() {
+        Ok(i) => i,
+        Err(_) => {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    };
     let mut db = state.db.write().unwrap();
 
     if !db.contains_key(&id) {
@@ -180,6 +196,39 @@ mod api_tests {
 
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         assert_eq!(&body[..], b"{\"status\":\"OK\"}");
+    }
+
+    #[tokio::test]
+    async fn invalid() {
+        let response = app()
+            .oneshot(
+                Request::builder()
+                    .uri("/feed/abc")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        assert_eq!(body.len(), 0);
+
+        let response = app()
+            .oneshot(
+                Request::builder()
+                    .uri("/feed/-1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        assert_eq!(body.len(), 0);
     }
 
     #[tokio::test]
@@ -330,6 +379,9 @@ mod api_tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::NO_CONTENT);
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        assert_eq!(body.len(), 0);
 
         let response = client
             .request(
