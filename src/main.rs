@@ -135,7 +135,7 @@ async fn list_handler(
 }
 
 #[cfg(test)]
-mod tests {
+mod api_tests {
     use crate::feed::Feed;
 
     use super::*;
@@ -188,6 +188,7 @@ mod tests {
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         let f: Feed = serde_json::from_slice(&body).unwrap();
 
+        assert_eq!(f.id, 1);
         assert_eq!(f.name, "Name");
         assert_eq!(f.url, "http");
         assert_eq!(f.frequency, 10);
