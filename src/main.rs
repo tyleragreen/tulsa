@@ -72,7 +72,7 @@ async fn status_handler() -> Json<Status> {
     })
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct CreateFeed {
     name: String,
     url: String,
@@ -136,12 +136,20 @@ async fn list_handler(
 
 #[cfg(test)]
 mod tests {
+    use crate::feed::Feed;
+
     use super::*;
     use axum::{
         body::Body,
-        http::{Request, StatusCode},
+        http::{self, Request, StatusCode},
     };
     use tower::ServiceExt; // for `oneshot`
+
+    impl From<CreateFeed> for Body {
+        fn from(feed: CreateFeed) -> Self {
+            return Body::from(serde_json::to_string(&feed).unwrap())
+        }
+    }
 
     #[tokio::test]
     async fn status() {
@@ -154,5 +162,34 @@ mod tests {
 
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         assert_eq!(&body[..], b"{\"status\":\"OK\"}");
+    }
+
+    #[tokio::test]
+    async fn post() {
+        let input = CreateFeed {
+            name: "Name".to_string(),
+            url: "http".to_string(),
+            frequency: 10
+        };
+        let response = app()
+            .oneshot(
+                Request::builder()
+                .method(http::Method::POST)
+                .uri("/feed")
+                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                .body(Body::from(input))
+            .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::CREATED);
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let f: Feed = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(f.name, "Name");
+        assert_eq!(f.url, "http");
+        assert_eq!(f.frequency, 10);
     }
 }
