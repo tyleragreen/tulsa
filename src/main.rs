@@ -130,7 +130,7 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
     let mut db = state.db.write().unwrap();
 
     if !db.contains_key(&id) {
-        return (StatusCode::NOT_FOUND, Json(""));
+        return Err(StatusCode::NOT_FOUND);
     }
 
     let feed = feed::Feed {
@@ -143,7 +143,7 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
     db.remove(&id);
     QUEUE.lock().unwrap().push_back(feed.clone());
 
-    (StatusCode::NO_CONTENT, Json(""))
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn list_handler(state: State<AppState>) -> impl IntoResponse {
