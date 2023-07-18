@@ -84,7 +84,6 @@ async fn post_handler(
     state: State<AppState>,
     Json(payload): Json<CreateFeed>,
     ) -> (StatusCode, Json<feed::Feed>) {
-
     let new_id = *(state.feed_id.read().unwrap());
     let feed = feed::Feed {
         id: new_id,
@@ -132,14 +131,8 @@ async fn list_handler(
     state: State<AppState>,
     ) -> impl IntoResponse {
     let db = state.db.read().unwrap();
-    let feeds = db.values().map(|f| f.clone());
-
-    // there's gotta be a cleaner way to convert the values to a JSON output
-    let mut output: Vec<feed::Feed> = Vec::new();
-    for feed in feeds {
-        output.insert(0, feed);
-    }
-    Json(output)
+    let feeds: Vec<feed::Feed> = db.values().cloned().collect();
+    Json(feeds)
 }
 
 #[cfg(test)]
