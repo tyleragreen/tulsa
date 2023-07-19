@@ -5,8 +5,8 @@ use tokio::time::{Duration, Interval};
 use crate::feed::Feed;
 use crate::QUEUE;
 
-async fn process() {
-    println!("Hello, World!");
+async fn process(feed: Feed) {
+    println!("Fetching {}", feed.name);
 }
 
 async fn recurring_task(feed: Feed) {
@@ -15,7 +15,7 @@ async fn recurring_task(feed: Feed) {
 
     loop {
         interval.tick().await;
-        tokio::spawn(process());
+        tokio::spawn(process(feed.clone()));
     }
 }
 

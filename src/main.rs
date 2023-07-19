@@ -5,6 +5,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use feed::Feed;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -18,13 +19,13 @@ mod feed;
 mod scheduler;
 
 lazy_static! {
-    static ref QUEUE: Mutex<VecDeque<feed::Feed>> = Mutex::new(VecDeque::new());
+    static ref QUEUE: Mutex<VecDeque<Feed>> = Mutex::new(VecDeque::new());
 }
 
 #[derive(Clone)]
 struct AppState {
     feed_id: Arc<RwLock<u32>>,
-    db: Arc<RwLock<HashMap<u32, feed::Feed>>>,
+    db: Arc<RwLock<HashMap<u32, Feed>>>,
 }
 
 fn app() -> Router {
@@ -79,9 +80,9 @@ struct CreateFeed {
 async fn post_handler(
     state: State<AppState>,
     Json(payload): Json<CreateFeed>,
-) -> (StatusCode, Json<feed::Feed>) {
+) -> (StatusCode, Json<Feed>) {
     let id = *(state.feed_id.read().unwrap());
-    let feed = feed::Feed {
+    let feed = Feed {
         id,
         name: payload.name,
         url: payload.url,
@@ -123,7 +124,7 @@ async fn put_handler(
             return Err(StatusCode::BAD_REQUEST);
         }
     };
-    let feed = feed::Feed {
+    let feed = Feed {
         id,
         name: payload.name,
         url: payload.url,
@@ -149,7 +150,7 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
         return Err(StatusCode::NOT_FOUND);
     }
 
-    let feed = feed::Feed {
+    let feed = Feed {
         id,
         name: "".to_string(),
         url: "".to_string(),
@@ -164,7 +165,7 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
 
 async fn list_handler(state: State<AppState>) -> impl IntoResponse {
     let db = state.db.read().unwrap();
-    let feeds: Vec<feed::Feed> = db.values().cloned().collect();
+    let feeds: Vec<Feed> = db.values().cloned().collect();
     Json(feeds)
 }
 
