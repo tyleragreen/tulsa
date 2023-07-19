@@ -72,7 +72,7 @@ async fn status_handler() -> Json<Status> {
 struct CreateFeed {
     name: String,
     url: String,
-    frequency: u32,
+    frequency: u64,
 }
 
 #[axum_macros::debug_handler]
