@@ -18,6 +18,7 @@ pub mod transit {
 }
 
 mod feed;
+mod fetcher;
 mod scheduler;
 
 #[derive(Clone)]
@@ -45,9 +46,6 @@ fn app(sender: Sender<Feed>) -> Router {
 
 #[tokio::main]
 async fn main() {
-    let feed = transit::FeedMessage::default();
-    dbg!(feed);
-
     let (sender, receiver) = mpsc::channel();
     scheduler::init(receiver);
 
@@ -75,6 +73,7 @@ struct CreateFeed {
     name: String,
     url: String,
     frequency: u64,
+    headers: HashMap<String, String>,
 }
 
 #[axum_macros::debug_handler]
@@ -88,6 +87,7 @@ async fn post_handler(
         name: payload.name,
         url: payload.url,
         frequency: payload.frequency,
+        headers: payload.headers,
     };
 
     state.db.write().unwrap().insert(id, feed.clone());
@@ -134,6 +134,7 @@ async fn put_handler(
         name: payload.name,
         url: payload.url,
         frequency: payload.frequency,
+        headers: payload.headers,
     };
 
     state.db.write().unwrap().insert(id, feed.clone());
@@ -164,6 +165,7 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
         name: "".to_string(),
         url: "".to_string(),
         frequency: 0,
+        headers: HashMap::new(),
     };
 
     db.remove(&id);
@@ -251,10 +253,12 @@ mod api_tests {
 
     #[tokio::test]
     async fn post() {
+        let headers = HashMap::from([("auth".to_string(), "key".to_string())]);
         let input = CreateFeed {
             name: "Name".to_string(),
             url: "http".to_string(),
             frequency: 10,
+            headers,
         };
         let (sender, _) = mpsc::channel();
         let response = app(sender)
@@ -278,6 +282,7 @@ mod api_tests {
         assert_eq!(f.name, "Name");
         assert_eq!(f.url, "http");
         assert_eq!(f.frequency, 10);
+        assert_eq!(f.headers["auth"], "key");
     }
 
     #[tokio::test]
@@ -287,11 +292,13 @@ mod api_tests {
             name: "Name".to_string(),
             url: "http".to_string(),
             frequency: 10,
+            headers: HashMap::new(),
         };
         let input_new = CreateFeed {
             name: "Name".to_string(),
             url: "http".to_string(),
             frequency: 20,
+            headers: HashMap::new(),
         };
 
         let (sender, _) = mpsc::channel();
