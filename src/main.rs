@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use feed::Feed;
+use feed::{Action, ActionType, Feed};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, RwLock};
 use std::{
@@ -25,10 +25,10 @@ mod scheduler;
 struct AppState {
     feed_id: Arc<RwLock<u32>>,
     db: Arc<RwLock<HashMap<u32, Feed>>>,
-    sender: Arc<Mutex<Sender<Feed>>>,
+    sender: Arc<Mutex<Sender<Action>>>,
 }
 
-fn app(sender: Sender<Feed>) -> Router {
+fn app(sender: Sender<Action>) -> Router {
     let state = AppState {
         feed_id: Arc::new(RwLock::new(1)),
         db: Arc::new(RwLock::new(HashMap::new())),
@@ -92,7 +92,12 @@ async fn post_handler(
 
     state.db.write().unwrap().insert(id, feed.clone());
     *(state.feed_id.write().unwrap()) += 1;
-    let result = state.sender.lock().unwrap().send(feed.clone());
+
+    let action = Action {
+        feed: Some(feed.clone()),
+        action: ActionType::Create,
+    };
+    let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
         println!("{}", e);
@@ -138,7 +143,11 @@ async fn put_handler(
     };
 
     state.db.write().unwrap().insert(id, feed.clone());
-    let result = state.sender.lock().unwrap().send(feed.clone());
+    let action = Action {
+        feed: Some(feed.clone()),
+        action: ActionType::Update,
+    };
+    let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
         println!("{}", e);
@@ -160,16 +169,12 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
         return Err(StatusCode::NOT_FOUND);
     }
 
-    let feed = Feed {
-        id,
-        name: "".to_string(),
-        url: "".to_string(),
-        frequency: 0,
-        headers: HashMap::new(),
-    };
-
     db.remove(&id);
-    let result = state.sender.lock().unwrap().send(feed.clone());
+    let action = Action {
+        feed: None,
+        action: ActionType::Delete,
+    };
+    let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
         println!("{}", e);

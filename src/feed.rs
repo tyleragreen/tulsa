@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Feed {
     pub id: u32,
     pub name: String,
@@ -21,4 +21,17 @@ impl Feed {
         }
         headers
     }
+}
+
+#[derive(Clone)]
+pub enum ActionType {
+    Create,
+    Update,
+    Delete,
+}
+
+#[derive(Clone)]
+pub struct Action {
+    pub feed: Option<Feed>,
+    pub action: ActionType,
 }
