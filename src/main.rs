@@ -6,10 +6,12 @@ use axum::{
     Json, Router,
 };
 use feed::Feed;
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
+use std::{
+    collections::HashMap,
+    sync::mpsc::{self, Sender},
+};
 
 pub mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
@@ -18,20 +20,18 @@ pub mod transit {
 mod feed;
 mod scheduler;
 
-lazy_static! {
-    static ref QUEUE: Mutex<VecDeque<Feed>> = Mutex::new(VecDeque::new());
-}
-
 #[derive(Clone)]
 struct AppState {
     feed_id: Arc<RwLock<u32>>,
     db: Arc<RwLock<HashMap<u32, Feed>>>,
+    sender: Arc<Mutex<Sender<Feed>>>,
 }
 
-fn app() -> Router {
+fn app(sender: Sender<Feed>) -> Router {
     let state = AppState {
         feed_id: Arc::new(RwLock::new(1)),
         db: Arc::new(RwLock::new(HashMap::new())),
+        sender: Arc::new(Mutex::new(sender)),
     };
     Router::new()
         .route("/", get(status_handler))
@@ -48,12 +48,13 @@ async fn main() {
     let feed = transit::FeedMessage::default();
     dbg!(feed);
 
-    scheduler::init();
+    let (sender, receiver) = mpsc::channel();
+    scheduler::init(receiver);
 
     let address: &str = "0.0.0.0:3000";
     println!("Starting server on {}.", address);
     axum::Server::bind(&address.parse().unwrap())
-        .serve(app().into_make_service())
+        .serve(app(sender).into_make_service())
         .await
         .unwrap();
 }
@@ -91,7 +92,11 @@ async fn post_handler(
 
     state.db.write().unwrap().insert(id, feed.clone());
     *(state.feed_id.write().unwrap()) += 1;
-    QUEUE.lock().unwrap().push_back(feed.clone());
+    let result = state.sender.lock().unwrap().send(feed.clone());
+
+    if let Err(e) = result {
+        println!("{}", e);
+    }
 
     (StatusCode::CREATED, Json(feed))
 }
@@ -132,7 +137,11 @@ async fn put_handler(
     };
 
     state.db.write().unwrap().insert(id, feed.clone());
-    QUEUE.lock().unwrap().push_back(feed.clone());
+    let result = state.sender.lock().unwrap().send(feed.clone());
+
+    if let Err(e) = result {
+        println!("{}", e);
+    }
 
     Ok(Json(feed))
 }
@@ -158,7 +167,11 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
     };
 
     db.remove(&id);
-    QUEUE.lock().unwrap().push_back(feed.clone());
+    let result = state.sender.lock().unwrap().send(feed.clone());
+
+    if let Err(e) = result {
+        println!("{}", e);
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -188,7 +201,10 @@ mod api_tests {
 
     #[tokio::test]
     async fn status() {
-        let response = app()
+        // there should be a way to make this a mock channel instead. I struggled with the types
+        // here but I may look into this in the future.
+        let (sender, _) = mpsc::channel();
+        let response = app(sender)
             .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
             .await
             .unwrap();
@@ -201,7 +217,8 @@ mod api_tests {
 
     #[tokio::test]
     async fn invalid() {
-        let response = app()
+        let (sender, _) = mpsc::channel();
+        let response = app(sender.clone())
             .oneshot(
                 Request::builder()
                     .uri("/feed/abc")
@@ -216,7 +233,7 @@ mod api_tests {
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         assert_eq!(body.len(), 0);
 
-        let response = app()
+        let response = app(sender.clone())
             .oneshot(
                 Request::builder()
                     .uri("/feed/-1")
@@ -239,7 +256,8 @@ mod api_tests {
             url: "http".to_string(),
             frequency: 10,
         };
-        let response = app()
+        let (sender, _) = mpsc::channel();
+        let response = app(sender)
             .oneshot(
                 Request::builder()
                     .method(http::Method::POST)
@@ -276,9 +294,10 @@ mod api_tests {
             frequency: 20,
         };
 
+        let (sender, _) = mpsc::channel();
         tokio::spawn(async move {
             axum::Server::bind(&addr.parse().unwrap())
-                .serve(app().into_make_service())
+                .serve(app(sender).into_make_service())
                 .await
                 .unwrap();
         });

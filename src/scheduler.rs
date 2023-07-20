@@ -1,11 +1,11 @@
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::Client;
+use std::sync::mpsc::Receiver;
 use std::thread;
 use tokio::runtime::Runtime;
 use tokio::time::{Duration, Interval};
 
 use crate::feed::Feed;
-use crate::QUEUE;
 
 async fn fetch(feed: Feed) {
     println!("Fetching {}", feed.name);
@@ -37,26 +37,17 @@ async fn recurring_task(feed: Feed) {
     }
 }
 
-fn scheduler() {
+fn scheduler(receiver: Receiver<Feed>) {
     println!("Scheduler initialized.");
 
     let runtime = Runtime::new().unwrap();
     runtime.block_on(async {
-        loop {
-            let item = QUEUE.lock().unwrap().pop_back();
-
-            match item {
-                Some(i) => {
-                    let _future = tokio::spawn(recurring_task(i.clone()));
-                }
-                None => {
-                    continue;
-                }
-            }
+        for item in receiver {
+            let _future = tokio::spawn(recurring_task(item.clone()));
         }
     });
 }
 
-pub fn init() {
-    thread::spawn(scheduler);
+pub fn init(receiver: Receiver<Feed>) {
+    thread::spawn(move || scheduler(receiver));
 }
