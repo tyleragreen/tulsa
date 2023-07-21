@@ -48,7 +48,30 @@ fn scheduler(receiver: Receiver<Action>) {
                     };
                     tasks.insert(feed.id, w);
                 }
-                ActionType::Update => {}
+                ActionType::Update => {
+                    // I'm just doing the Delete followed by the Create code here
+                    // find a way to not repeat myself
+                    let w = &tasks[&action.id];
+                    w.work.abort_handle().abort();
+                    feeds.remove(&action.id);
+                    tasks.remove(&action.id);
+                    println!("Stopped {}", action.id);
+
+                    let item = action.feed;
+
+                    if item.is_none() {
+                        continue;
+                    }
+                    let feed = item.unwrap();
+                    feeds.insert(feed.id, feed.clone());
+                    let future = tokio::spawn(recurring_task(feeds[&feed.id].clone()));
+                    let w = Work {
+                        _feed: feeds[&feed.id].clone(),
+                        work: future,
+                    };
+                    tasks.insert(feed.id, w);
+                    println!("Restarted {}", action.id);
+                }
                 ActionType::Delete => {
                     let w = &tasks[&action.id];
                     w.work.abort_handle().abort();
