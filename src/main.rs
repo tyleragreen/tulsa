@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use feed::{Action, ActionType, Feed};
+use model::{Action, ActionType, Feed};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, RwLock};
 use std::{
@@ -17,7 +17,7 @@ pub mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
 }
 
-mod feed;
+mod model;
 mod fetcher;
 mod scheduler;
 
@@ -194,7 +194,7 @@ async fn list_handler(state: State<AppState>) -> impl IntoResponse {
 
 #[cfg(test)]
 mod api_tests {
-    use crate::feed::Feed;
+    use crate::model::Feed;
 
     use super::*;
     use axum::{

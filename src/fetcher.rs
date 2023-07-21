@@ -1,4 +1,4 @@
-use crate::feed::Feed;
+use crate::model::Feed;
 use bytes::IntoBuf;
 use prost::Message;
 use reqwest::Client;

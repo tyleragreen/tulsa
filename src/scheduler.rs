@@ -5,7 +5,7 @@ use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, Interval};
 
-use crate::feed::{Action, ActionType, Feed};
+use crate::model::{Action, ActionType, Feed};
 use crate::fetcher::fetch;
 
 async fn recurring_task(feed: Feed) {
