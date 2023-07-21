@@ -5,8 +5,8 @@ use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, Interval};
 
-use crate::model::{Action, ActionType, Feed};
 use crate::fetcher::fetch;
+use crate::model::{Action, ActionType, Feed};
 
 async fn recurring_task(feed: Feed) {
     let interval_duration = Duration::from_secs(feed.frequency);

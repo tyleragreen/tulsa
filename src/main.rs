@@ -17,8 +17,8 @@ pub mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
 }
 
-mod model;
 mod fetcher;
+mod model;
 mod scheduler;
 
 #[derive(Clone)]

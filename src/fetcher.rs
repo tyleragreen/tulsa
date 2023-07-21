@@ -5,7 +5,7 @@ use reqwest::Client;
 
 use crate::transit::FeedMessage;
 
-pub async fn fetch(feed: Feed) {
+pub async fn fetch(feed: Feed) -> u32 {
     println!("Fetching {}", feed.name);
 
     let client = Client::new();
@@ -28,4 +28,45 @@ pub async fn fetch(feed: Feed) {
         }
     }
     println!("{}: {} trip updates", feed.name, num_trip_updates);
+
+    num_trip_updates
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockito::mock;
+    use std::collections::HashMap;
+    use std::fs;
+    use std::io::Read;
+    use std::vec::Vec;
+
+    #[tokio::test]
+    async fn test_fetcher() {
+        let path = "fixtures/gtfs-07132023-123501";
+        let mut buffer: Vec<u8> = Vec::new();
+        let mut file = fs::File::open(path).expect("Failed to open the file");
+        file.read_to_end(&mut buffer)
+            .expect("Failed to read the file");
+
+        let server = mockito::server_address().to_string();
+        let mock = mock("GET", "/gtfs")
+            .with_status(200)
+            .with_body(buffer)
+            .create();
+
+        let feed = Feed {
+            id: 1,
+            name: "Test".to_string(),
+            frequency: 5,
+            url: format!("http://{}{}", server, "/gtfs"),
+            headers: HashMap::new(),
+        };
+
+        let num_found = fetch(feed).await;
+
+        assert_eq!(num_found, 243);
+
+        mock.assert();
+    }
 }
