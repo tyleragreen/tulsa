@@ -32,6 +32,7 @@ pub enum ActionType {
 
 #[derive(Clone)]
 pub struct Action {
+    pub id: u32,
     pub feed: Option<Feed>,
     pub action: ActionType,
 }

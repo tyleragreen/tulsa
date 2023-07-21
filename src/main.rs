@@ -94,6 +94,7 @@ async fn post_handler(
     *(state.feed_id.write().unwrap()) += 1;
 
     let action = Action {
+        id,
         feed: Some(feed.clone()),
         action: ActionType::Create,
     };
@@ -144,6 +145,7 @@ async fn put_handler(
 
     state.db.write().unwrap().insert(id, feed.clone());
     let action = Action {
+        id,
         feed: Some(feed.clone()),
         action: ActionType::Update,
     };
@@ -171,6 +173,7 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
 
     db.remove(&id);
     let action = Action {
+        id,
         feed: None,
         action: ActionType::Delete,
     };

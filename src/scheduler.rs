@@ -20,7 +20,7 @@ async fn recurring_task(feed: Feed) {
 
 struct Work {
     _feed: Feed,
-    _work: JoinHandle<()>,
+    work: JoinHandle<()>,
 }
 
 fn scheduler(receiver: Receiver<Action>) {
@@ -44,12 +44,18 @@ fn scheduler(receiver: Receiver<Action>) {
                     let future = tokio::spawn(recurring_task(feeds[&feed.id].clone()));
                     let w = Work {
                         _feed: feeds[&feed.id].clone(),
-                        _work: future,
+                        work: future,
                     };
                     tasks.insert(feed.id, w);
                 }
                 ActionType::Update => {}
-                ActionType::Delete => {}
+                ActionType::Delete => {
+                    let w = &tasks[&action.id];
+                    w.work.abort_handle().abort();
+                    feeds.remove(&action.id);
+                    tasks.remove(&action.id);
+                    println!("Stopped {}", action.id);
+                }
             }
         }
     });
