@@ -18,72 +18,55 @@ async fn recurring_task(feed: Feed) {
     }
 }
 
-struct Work {
-    _feed: Feed,
-    work: JoinHandle<()>,
+struct Scheduler {
+    tasks: HashMap<u32, JoinHandle<()>>,
 }
 
-fn scheduler(receiver: Receiver<Action>) {
-    println!("Scheduler initialized.");
+impl Scheduler {
+    fn create(&mut self, action: Action) {
+        let optional_feed = action.feed;
 
-    let mut feeds: Box<HashMap<u32, Feed>> = Box::default();
-    let mut tasks: Box<HashMap<u32, Work>> = Box::default();
+        if optional_feed.is_none() {
+            return;
+        }
+        let feed = optional_feed.unwrap();
+        let future = tokio::spawn(recurring_task(feed.clone()));
+        self.tasks.insert(action.id, future);
+    }
 
-    let runtime = Runtime::new().unwrap();
-    runtime.block_on(async {
-        for action in receiver {
-            match action.action {
-                ActionType::Create => {
-                    let item = action.feed;
+    fn delete(&mut self, action: Action) {
+        let task = &self.tasks[&action.id];
+        task.abort_handle().abort();
+        self.tasks.remove(&action.id);
+        println!("Stopped {}", action.id);
+    }
 
-                    if item.is_none() {
-                        continue;
+    fn start(&mut self, receiver: Receiver<Action>) {
+        println!("Scheduler initialized.");
+
+        let runtime = Runtime::new().unwrap();
+        runtime.block_on(async {
+            for action in receiver {
+                match action.action {
+                    ActionType::Create => {
+                        self.create(action);
                     }
-                    let feed = item.unwrap();
-                    feeds.insert(feed.id, feed.clone());
-                    let future = tokio::spawn(recurring_task(feeds[&feed.id].clone()));
-                    let w = Work {
-                        _feed: feeds[&feed.id].clone(),
-                        work: future,
-                    };
-                    tasks.insert(feed.id, w);
-                }
-                ActionType::Update => {
-                    // I'm just doing the Delete followed by the Create code here
-                    // find a way to not repeat myself
-                    let w = &tasks[&action.id];
-                    w.work.abort_handle().abort();
-                    feeds.remove(&action.id);
-                    tasks.remove(&action.id);
-                    println!("Stopped {}", action.id);
-
-                    let item = action.feed;
-
-                    if item.is_none() {
-                        continue;
+                    ActionType::Update => {
+                        self.delete(action.clone());
+                        self.create(action.clone());
                     }
-                    let feed = item.unwrap();
-                    feeds.insert(feed.id, feed.clone());
-                    let future = tokio::spawn(recurring_task(feeds[&feed.id].clone()));
-                    let w = Work {
-                        _feed: feeds[&feed.id].clone(),
-                        work: future,
-                    };
-                    tasks.insert(feed.id, w);
-                    println!("Restarted {}", action.id);
-                }
-                ActionType::Delete => {
-                    let w = &tasks[&action.id];
-                    w.work.abort_handle().abort();
-                    feeds.remove(&action.id);
-                    tasks.remove(&action.id);
-                    println!("Stopped {}", action.id);
+                    ActionType::Delete => {
+                        self.delete(action);
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 }
 
 pub fn init(receiver: Receiver<Action>) {
-    thread::spawn(move || scheduler(receiver));
+    let mut scheduler = Scheduler {
+        tasks: HashMap::new(),
+    };
+    thread::spawn(move || scheduler.start(receiver));
 }

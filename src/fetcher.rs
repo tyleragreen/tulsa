@@ -27,5 +27,5 @@ pub async fn fetch(feed: Feed) {
             num_trip_updates += 1;
         }
     }
-    println!("{}: {}", feed.name, num_trip_updates);
+    println!("{}: {} trip updates", feed.name, num_trip_updates);
 }
