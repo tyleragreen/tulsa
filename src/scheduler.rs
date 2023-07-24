@@ -23,18 +23,14 @@ struct Scheduler {
 }
 
 impl Scheduler {
-    fn create(&mut self, action: Action) {
-        let optional_feed = action.feed;
-
-        if optional_feed.is_none() {
-            return;
+    fn create(&mut self, action: &Action) {
+        if let Some(feed) = &action.feed {
+            let future = tokio::spawn(recurring_task(feed.clone()));
+            self.tasks.insert(action.id, future);
         }
-        let feed = optional_feed.unwrap();
-        let future = tokio::spawn(recurring_task(feed.clone()));
-        self.tasks.insert(action.id, future);
     }
 
-    fn delete(&mut self, action: Action) {
+    fn delete(&mut self, action: &Action) {
         let task = &self.tasks[&action.id];
         task.abort_handle().abort();
         self.tasks.remove(&action.id);
@@ -53,28 +49,34 @@ impl Scheduler {
             .build()
             .unwrap();
         runtime.block_on(async {
-            for action in receiver {
+            loop {
+                let action = receiver.recv().unwrap();
                 match action.action {
                     ActionType::Create => {
-                        self.create(action);
+                        self.create(&action);
                     }
                     ActionType::Update => {
-                        self.delete(action.clone());
-                        self.create(action.clone());
+                        self.delete(&action);
+                        self.create(&action);
                     }
                     ActionType::Delete => {
-                        self.delete(action);
+                        self.delete(&action);
                     }
                 }
+
             }
         });
+    }
+
+    fn new() -> Self {
+        Scheduler {
+            tasks: HashMap::new(),
+        }
     }
 }
 
 pub fn init(receiver: Receiver<Action>) {
-    let mut scheduler = Scheduler {
-        tasks: HashMap::new(),
-    };
+    let mut scheduler = Scheduler::new();
     let builder = thread::Builder::new().name("scheduler".to_string());
     let _ = builder.spawn(move || scheduler.start(receiver));
 }
