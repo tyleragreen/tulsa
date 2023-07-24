@@ -12,6 +12,7 @@ use std::{
     collections::HashMap,
     sync::mpsc::{self, Sender},
 };
+use tokio::runtime::Builder;
 
 pub mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
@@ -44,17 +45,29 @@ fn app(sender: Sender<Action>) -> Router {
         .with_state(state)
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let (sender, receiver) = mpsc::channel();
     scheduler::init(receiver);
 
     let address: &str = "0.0.0.0:3000";
     println!("Starting server on {}.", address);
-    axum::Server::bind(&address.parse().unwrap())
-        .serve(app(sender).into_make_service())
-        .await
+
+    // We use a runtime::Builder to specify the number of threads,
+    // otherwise we could just use #[tokio:main] to launch a runtime automatically.
+    let num_threads = 1;
+    let runtime = Builder::new_multi_thread()
+        .enable_io()
+        .worker_threads(num_threads)
+        .thread_name("server-runtime")
+        .build()
         .unwrap();
+
+    runtime.block_on(async {
+        axum::Server::bind(&address.parse().unwrap())
+            .serve(app(sender).into_make_service())
+            .await
+            .unwrap();
+    });
 }
 
 #[derive(Serialize)]

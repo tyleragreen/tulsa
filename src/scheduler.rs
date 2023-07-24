@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::thread;
-use tokio::runtime::Runtime;
+use tokio::runtime::Builder;
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, Interval};
 
@@ -44,7 +44,14 @@ impl Scheduler {
     fn start(&mut self, receiver: Receiver<Action>) {
         println!("Scheduler initialized.");
 
-        let runtime = Runtime::new().unwrap();
+        let num_threads = 1;
+        let runtime = Builder::new_multi_thread()
+            .enable_time()
+            .enable_io()
+            .worker_threads(num_threads)
+            .thread_name("scheduler-runtime")
+            .build()
+            .unwrap();
         runtime.block_on(async {
             for action in receiver {
                 match action.action {
@@ -68,5 +75,6 @@ pub fn init(receiver: Receiver<Action>) {
     let mut scheduler = Scheduler {
         tasks: HashMap::new(),
     };
-    thread::spawn(move || scheduler.start(receiver));
+    let builder = thread::Builder::new().name("scheduler".to_string());
+    let _ = builder.spawn(move || scheduler.start(receiver));
 }
