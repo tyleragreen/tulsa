@@ -14,7 +14,9 @@ async fn recurring_task(feed: Feed) {
 
     loop {
         interval.tick().await;
-        tokio::spawn(fetch(feed.clone()));
+        // It might technically be more accurate timer-wise to spawn this
+        // like so: tokio::spawn(fetch(feed.clone()));
+        fetch(&feed).await;
     }
 }
 
@@ -63,7 +65,6 @@ impl Scheduler {
                         self.delete(&action);
                     }
                 }
-
             }
         });
     }

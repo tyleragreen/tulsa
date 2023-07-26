@@ -5,14 +5,14 @@ use reqwest::Client;
 
 use crate::transit::FeedMessage;
 
-pub async fn fetch(feed: Feed) -> u32 {
+pub async fn fetch(feed: &Feed) -> u32 {
     println!("Fetching {}", feed.name);
 
     let client = Client::new();
 
     let headers = feed.to_header_map();
     let response = client
-        .get(feed.url)
+        .get(&feed.url)
         .headers(headers)
         .send()
         .await
@@ -63,7 +63,7 @@ mod tests {
             headers: HashMap::new(),
         };
 
-        let num_found = fetch(feed).await;
+        let num_found = fetch(&feed).await;
 
         assert_eq!(num_found, 243);
 
