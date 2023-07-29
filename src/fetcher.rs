@@ -1,5 +1,4 @@
 use crate::model::Feed;
-use bytes::IntoBuf;
 use prost::Message;
 use reqwest::Client;
 
@@ -19,7 +18,7 @@ pub async fn fetch(feed: &Feed) -> u32 {
         .expect("fetch failed!");
     let bytes = response.bytes().await.unwrap();
 
-    let b = FeedMessage::decode(bytes.into_buf()).unwrap();
+    let b = FeedMessage::decode(bytes).unwrap();
 
     let mut num_trip_updates: u32 = 0;
     for e in b.entity {

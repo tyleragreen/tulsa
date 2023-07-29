@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 axum = "0.6.18"
 axum-macros = "0.3.7"
-bytes = "0.4"
+bytes = "1.4"
 hyper = { version = "0.14.27", features = ["client"] }
 lazy_static = "1.4.0"
 mime = "0.3.17"
