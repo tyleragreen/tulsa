@@ -1,5 +1,4 @@
 use crate::model::Feed;
-use bytes::IntoBuf;
 use prost::Message;
 use reqwest::Client;
 
@@ -19,7 +18,7 @@ pub async fn fetch(feed: &Feed) -> u32 {
         .expect("fetch failed!");
     let bytes = response.bytes().await.unwrap();
 
-    let b = FeedMessage::decode(bytes.into_buf()).unwrap();
+    let b = FeedMessage::decode(bytes).unwrap();
 
     let mut num_trip_updates: u32 = 0;
     for e in b.entity {
@@ -35,7 +34,6 @@ pub async fn fetch(feed: &Feed) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mockito::mock;
     use std::collections::HashMap;
     use std::fs;
     use std::io::Read;
@@ -49,8 +47,9 @@ mod tests {
         file.read_to_end(&mut buffer)
             .expect("Failed to read the file");
 
-        let server = mockito::server_address().to_string();
-        let mock = mock("GET", "/gtfs")
+        let mut server = mockito::Server::new();
+        let host = server.host_with_port();
+        server.mock("GET", "/gtfs")
             .with_status(200)
             .with_body(buffer)
             .create();
@@ -59,14 +58,12 @@ mod tests {
             id: 1,
             name: "Test".to_string(),
             frequency: 5,
-            url: format!("http://{}{}", server, "/gtfs"),
+            url: format!("http://{}{}", host, "/gtfs"),
             headers: HashMap::new(),
         };
 
         let num_found = fetch(&feed).await;
 
         assert_eq!(num_found, 243);
-
-        mock.assert();
     }
 }
