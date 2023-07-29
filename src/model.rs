@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Feed {
-    pub id: u32,
+    pub id: usize,
     pub name: String,
     pub url: String,
     pub frequency: u64,
@@ -32,7 +32,7 @@ pub enum ActionType {
 
 #[derive(Clone)]
 pub struct Action {
-    pub id: u32,
+    pub id: usize,
     pub feed: Option<Feed>,
     pub action: ActionType,
 }

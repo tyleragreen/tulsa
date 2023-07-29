@@ -21,7 +21,7 @@ async fn recurring_task(feed: Feed) {
 }
 
 struct Scheduler {
-    tasks: HashMap<u32, JoinHandle<()>>,
+    tasks: HashMap<usize, JoinHandle<()>>,
 }
 
 impl Scheduler {

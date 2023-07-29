@@ -24,8 +24,8 @@ mod scheduler;
 
 #[derive(Clone)]
 struct AppState {
-    feed_id: Arc<RwLock<u32>>,
-    db: Arc<RwLock<HashMap<u32, Feed>>>,
+    feed_id: Arc<RwLock<usize>>,
+    db: Arc<RwLock<HashMap<usize, Feed>>>,
     sender: Arc<Mutex<Sender<Action>>>,
 }
 
@@ -121,7 +121,7 @@ async fn post_handler(
 }
 
 async fn get_handler(path: Path<String>, state: State<AppState>) -> impl IntoResponse {
-    let id: u32 = match path.parse() {
+    let id: usize = match path.parse() {
         Ok(i) => i,
         Err(_) => {
             return Err(StatusCode::BAD_REQUEST);
@@ -142,7 +142,7 @@ async fn put_handler(
     state: State<AppState>,
     Json(payload): Json<CreateFeed>,
 ) -> impl IntoResponse {
-    let id: u32 = match path.parse() {
+    let id: usize = match path.parse() {
         Ok(i) => i,
         Err(_) => {
             return Err(StatusCode::BAD_REQUEST);
@@ -172,7 +172,7 @@ async fn put_handler(
 }
 
 async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl IntoResponse {
-    let id: u32 = match path.parse() {
+    let id: usize = match path.parse() {
         Ok(i) => i,
         Err(_) => {
             return Err(StatusCode::BAD_REQUEST);

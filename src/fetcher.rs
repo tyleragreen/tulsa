@@ -4,7 +4,7 @@ use reqwest::Client;
 
 use crate::transit::FeedMessage;
 
-pub async fn fetch(feed: &Feed) -> u32 {
+pub async fn fetch(feed: &Feed) -> usize {
     println!("Fetching {}", feed.name);
 
     let client = Client::new();
@@ -20,7 +20,7 @@ pub async fn fetch(feed: &Feed) -> u32 {
 
     let b = FeedMessage::decode(bytes).unwrap();
 
-    let mut num_trip_updates: u32 = 0;
+    let mut num_trip_updates: usize = 0;
     for e in b.entity {
         if e.trip_update.is_some() {
             num_trip_updates += 1;
