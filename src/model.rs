@@ -1,29 +1,5 @@
-use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
-
-use reqwest::header::{HeaderMap, HeaderName};
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Feed {
-    pub id: usize,
-    pub name: String,
-    pub url: String,
-    pub frequency: u64,
-    pub headers: HashMap<String, String>,
-}
-
-impl Feed {
-    pub fn to_header_map(&self) -> HeaderMap {
-        let mut headers = HeaderMap::new();
-        for (key, value) in self.headers.iter() {
-            let new_key: HeaderName = key.parse().unwrap();
-            headers.insert(new_key, value.parse().unwrap());
-        }
-        headers
-    }
-}
 
 #[derive(Clone)]
 pub enum Operation {

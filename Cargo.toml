@@ -1,5 +1,5 @@
 [package]
-name = "gtfs-realtime-rust"
+name = "gtfs_realtime_rust"
 version = "0.1.0"
 edition = "2021"
 
