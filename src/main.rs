@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use model::{Action, ActionType, Feed};
+use model::{AsyncTask, Feed};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, RwLock};
 use std::{
@@ -13,6 +13,9 @@ use std::{
     sync::mpsc::{self, Sender},
 };
 use tokio::runtime::Builder;
+use tokio::time::{Duration, Interval};
+
+use crate::fetcher::fetch;
 
 pub mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
@@ -22,14 +25,26 @@ mod fetcher;
 mod model;
 mod scheduler;
 
+async fn recurring_task(feed: Feed) {
+    let interval_duration = Duration::from_secs(feed.frequency);
+    let mut interval: Interval = tokio::time::interval(interval_duration);
+
+    loop {
+        interval.tick().await;
+        // It might technically be more accurate timer-wise to spawn this
+        // like so: tokio::spawn(fetch(feed.clone()));
+        fetch(&feed).await;
+    }
+}
+
 #[derive(Clone)]
 struct AppState {
     feed_id: Arc<RwLock<usize>>,
     db: Arc<RwLock<HashMap<usize, Feed>>>,
-    sender: Arc<Mutex<Sender<Action>>>,
+    sender: Arc<Mutex<Sender<AsyncTask>>>,
 }
 
-fn app(sender: Sender<Action>) -> Router {
+fn app(sender: Sender<AsyncTask>) -> Router {
     let state = AppState {
         feed_id: Arc::new(RwLock::new(1)),
         db: Arc::new(RwLock::new(HashMap::new())),
@@ -106,11 +121,7 @@ async fn post_handler(
     state.db.write().unwrap().insert(id, feed.clone());
     *(state.feed_id.write().unwrap()) += 1;
 
-    let action = Action {
-        id,
-        feed: Some(feed.clone()),
-        action: ActionType::Create,
-    };
+    let action = AsyncTask::new(id, recurring_task(feed.clone()));
     let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
@@ -157,11 +168,7 @@ async fn put_handler(
     };
 
     state.db.write().unwrap().insert(id, feed.clone());
-    let action = Action {
-        id,
-        feed: Some(feed.clone()),
-        action: ActionType::Update,
-    };
+    let action = AsyncTask::update(id, recurring_task(feed.clone()));
     let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
@@ -185,11 +192,7 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
     }
 
     db.remove(&id);
-    let action = Action {
-        id,
-        feed: None,
-        action: ActionType::Delete,
-    };
+    let action = AsyncTask::stop(id);
     let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {

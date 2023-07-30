@@ -1,6 +1,8 @@
-use reqwest::header::{HeaderMap, HeaderName};
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 
+use reqwest::header::{HeaderMap, HeaderName};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -24,15 +26,46 @@ impl Feed {
 }
 
 #[derive(Clone)]
-pub enum ActionType {
+pub enum Operation {
     Create,
     Update,
     Delete,
 }
 
-#[derive(Clone)]
-pub struct Action {
+pub struct AsyncTask {
     pub id: usize,
-    pub feed: Option<Feed>,
-    pub action: ActionType,
+    pub func: Pin<Box<dyn Future<Output = ()> + Send>>,
+    pub op: Operation,
+}
+
+impl AsyncTask {
+    pub fn new<F>(id: usize, func: F) -> Self
+    where
+        F: Future<Output = ()> + Send + 'static,
+    {
+        Self {
+            id,
+            func: Box::pin(func),
+            op: Operation::Create,
+        }
+    }
+
+    pub fn update<F>(id: usize, func: F) -> Self
+    where
+        F: Future<Output = ()> + Send + 'static,
+    {
+        Self {
+            id,
+            func: Box::pin(func),
+            op: Operation::Update,
+        }
+    }
+
+    pub fn stop(id: usize) -> Self {
+        Self {
+            id,
+            func: Box::pin(async {}),
+            op: Operation::Delete,
+        }
+    }
 }

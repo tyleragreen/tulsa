@@ -49,7 +49,8 @@ mod tests {
 
         let mut server = mockito::Server::new();
         let host = server.host_with_port();
-        server.mock("GET", "/gtfs")
+        server
+            .mock("GET", "/gtfs")
             .with_status(200)
             .with_body(buffer)
             .create();

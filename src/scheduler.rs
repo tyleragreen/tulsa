@@ -3,43 +3,15 @@ use std::sync::mpsc::Receiver;
 use std::thread;
 use tokio::runtime::Builder;
 use tokio::task::JoinHandle;
-use tokio::time::{Duration, Interval};
 
-use crate::fetcher::fetch;
-use crate::model::{Action, ActionType, Feed};
-
-async fn recurring_task(feed: Feed) {
-    let interval_duration = Duration::from_secs(feed.frequency);
-    let mut interval: Interval = tokio::time::interval(interval_duration);
-
-    loop {
-        interval.tick().await;
-        // It might technically be more accurate timer-wise to spawn this
-        // like so: tokio::spawn(fetch(feed.clone()));
-        fetch(&feed).await;
-    }
-}
+use crate::model::{AsyncTask, Operation};
 
 struct Scheduler {
     tasks: HashMap<usize, JoinHandle<()>>,
 }
 
 impl Scheduler {
-    fn create(&mut self, action: &Action) {
-        if let Some(feed) = &action.feed {
-            let future = tokio::spawn(recurring_task(feed.clone()));
-            self.tasks.insert(action.id, future);
-        }
-    }
-
-    fn delete(&mut self, action: &Action) {
-        let task = &self.tasks[&action.id];
-        task.abort_handle().abort();
-        self.tasks.remove(&action.id);
-        println!("Stopped {}", action.id);
-    }
-
-    fn start(&mut self, receiver: Receiver<Action>) {
+    fn start(&mut self, receiver: Receiver<AsyncTask>) {
         println!("Scheduler initialized.");
 
         let num_threads = 1;
@@ -50,19 +22,29 @@ impl Scheduler {
             .thread_name("scheduler-runtime")
             .build()
             .unwrap();
+
         runtime.block_on(async {
             loop {
-                let action = receiver.recv().unwrap();
-                match action.action {
-                    ActionType::Create => {
-                        self.create(&action);
+                let async_task = receiver.recv().unwrap();
+                match async_task.op {
+                    Operation::Create => {
+                        let future = tokio::spawn(async_task.func);
+                        self.tasks.insert(async_task.id, future);
                     }
-                    ActionType::Update => {
-                        self.delete(&action);
-                        self.create(&action);
+                    Operation::Update => {
+                        let task = &self.tasks[&async_task.id];
+                        task.abort_handle().abort();
+                        self.tasks.remove(&async_task.id);
+                        println!("Stopped {}", async_task.id);
+
+                        let future = tokio::spawn(async_task.func);
+                        self.tasks.insert(async_task.id, future);
                     }
-                    ActionType::Delete => {
-                        self.delete(&action);
+                    Operation::Delete => {
+                        let task = &self.tasks[&async_task.id];
+                        task.abort_handle().abort();
+                        self.tasks.remove(&async_task.id);
+                        println!("Stopped {}", async_task.id);
                     }
                 }
             }
@@ -76,7 +58,7 @@ impl Scheduler {
     }
 }
 
-pub fn init(receiver: Receiver<Action>) {
+pub fn init(receiver: Receiver<AsyncTask>) {
     let mut scheduler = Scheduler::new();
     let builder = thread::Builder::new().name("scheduler".to_string());
     let _ = builder.spawn(move || scheduler.start(receiver));
