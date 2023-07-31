@@ -59,7 +59,7 @@ async fn status_handler() -> Json<Status> {
     })
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 struct CreateFeed {
     name: String,
     url: String,
@@ -122,6 +122,12 @@ async fn put_handler(
             return Err(StatusCode::BAD_REQUEST);
         }
     };
+
+    let mut db = state.db.write().unwrap();
+    if db.get(&id).is_none() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
     let feed = Feed {
         id,
         name: payload.name,
@@ -130,7 +136,7 @@ async fn put_handler(
         headers: payload.headers,
     };
 
-    state.db.write().unwrap().insert(id, feed.clone());
+    db.insert(id, feed.clone());
     let action = AsyncTask::update(id, recurring_task(feed.clone()));
     let result = state.sender.lock().unwrap().send(action);
 
@@ -237,6 +243,45 @@ mod api_tests {
 
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         assert_eq!(body.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn invalid_put() {
+        let (sender, _) = mpsc::channel();
+        let headers = HashMap::from([("auth".to_string(), "key".to_string())]);
+        let input = CreateFeed {
+            name: "Name".to_string(),
+            url: "http".to_string(),
+            frequency: 10,
+            headers,
+        };
+        let response = app(sender.clone())
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::PUT)
+                    .uri("/feed/10")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(input.clone()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        let response = app(sender.clone())
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::PUT)
+                    .uri("/feed/-1")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(input.clone()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
     #[tokio::test]
