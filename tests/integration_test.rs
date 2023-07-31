@@ -14,10 +14,10 @@ mod tests {
         let (sender, receiver) = mpsc::channel();
         scheduler::init(receiver);
 
-        let address: &str = "0.0.0.0:3000";
         thread::spawn(move || {
             let runtime = Builder::new_multi_thread().enable_io().build().unwrap();
 
+            let address: &str = "0.0.0.0:3000";
             runtime.block_on(async {
                 axum::Server::bind(&address.parse().unwrap())
                     .serve(api::app(sender).into_make_service())

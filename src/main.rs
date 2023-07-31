@@ -13,10 +13,9 @@ fn main() {
 
     // We use a runtime::Builder to specify the number of threads,
     // otherwise we could just use #[tokio:main] to launch a runtime automatically.
-    let num_threads = 1;
     let runtime = Builder::new_multi_thread()
         .enable_io()
-        .worker_threads(num_threads)
+        .worker_threads(1)
         .thread_name("server-runtime")
         .build()
         .unwrap();

@@ -11,7 +11,7 @@ struct Scheduler {
 }
 
 impl Scheduler {
-    fn start(&mut self, receiver: Receiver<AsyncTask>) {
+    fn listen(&mut self, receiver: Receiver<AsyncTask>) {
         println!("Scheduler initialized.");
 
         let num_threads = 1;
@@ -26,29 +26,33 @@ impl Scheduler {
         runtime.block_on(async {
             loop {
                 let async_task = receiver.recv().unwrap();
-                match async_task.op {
-                    Operation::Create => {
-                        let future = tokio::spawn(async_task.func);
-                        self.tasks.insert(async_task.id, future);
-                    }
-                    Operation::Update => {
-                        let task = &self.tasks[&async_task.id];
-                        task.abort_handle().abort();
-                        self.tasks.remove(&async_task.id);
-                        println!("Stopped {}", async_task.id);
-
-                        let future = tokio::spawn(async_task.func);
-                        self.tasks.insert(async_task.id, future);
-                    }
-                    Operation::Delete => {
-                        let task = &self.tasks[&async_task.id];
-                        task.abort_handle().abort();
-                        self.tasks.remove(&async_task.id);
-                        println!("Stopped {}", async_task.id);
-                    }
-                }
+                self.handle(async_task);
             }
         });
+    }
+
+    fn handle(&mut self, async_task: AsyncTask) {
+        match async_task.op {
+            Operation::Create => {
+                let future = tokio::spawn(async_task.func);
+                self.tasks.insert(async_task.id, future);
+            }
+            Operation::Update => {
+                let task = &self.tasks[&async_task.id];
+                task.abort_handle().abort();
+                self.tasks.remove(&async_task.id);
+                println!("Stopped {}", async_task.id);
+
+                let future = tokio::spawn(async_task.func);
+                self.tasks.insert(async_task.id, future);
+            }
+            Operation::Delete => {
+                let task = &self.tasks[&async_task.id];
+                task.abort_handle().abort();
+                self.tasks.remove(&async_task.id);
+                println!("Stopped {}", async_task.id);
+            }
+        }
     }
 
     fn new() -> Self {
@@ -61,5 +65,5 @@ impl Scheduler {
 pub fn init(receiver: Receiver<AsyncTask>) {
     let mut scheduler = Scheduler::new();
     let builder = thread::Builder::new().name("scheduler".to_string());
-    let _ = builder.spawn(move || scheduler.start(receiver));
+    let _ = builder.spawn(move || scheduler.listen(receiver));
 }
