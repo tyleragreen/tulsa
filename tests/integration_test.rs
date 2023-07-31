@@ -2,12 +2,42 @@
 mod tests {
     use gtfs_realtime_rust::api;
     use gtfs_realtime_rust::scheduler;
+    use gtfs_realtime_rust::model::AsyncTask;
     use reqwest::blocking::Client;
     use serde_json::json;
     use std::sync::mpsc;
     use std::thread;
     use std::time::Duration;
+    //use std::fs::File;
+    //use std::io::prelude::*;
     use tokio::runtime::Builder;
+
+    #[test]
+    fn scheduler() {
+        let (sender, receiver) = mpsc::channel();
+        scheduler::init(receiver);
+
+        let task = AsyncTask::new(1, async {
+            println!("Hello from async task");
+            //let mut file = File::create("test.txt").unwrap();
+
+            //file.write_all(b"Hello, world!").unwrap();
+
+            //thread::sleep(Duration::from_millis(1000));
+
+            //file.write_all(b"Goodbye, world!").unwrap();
+        });
+
+        //thread::sleep(Duration::from_secs(2));
+        match sender.send(task) {
+            Ok(_) => {
+                assert!(true);
+            }
+            Err(_) => {
+                assert!(false);
+            }
+        }
+    }
 
     #[test]
     fn integration() {
@@ -26,7 +56,7 @@ mod tests {
             });
         });
 
-        thread::sleep(Duration::from_secs(1));
+        thread::sleep(Duration::from_millis(250));
 
         let client = Client::new();
         let data = json!({
