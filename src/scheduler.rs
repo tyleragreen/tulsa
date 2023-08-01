@@ -65,5 +65,7 @@ impl Scheduler {
 pub fn init(receiver: Receiver<AsyncTask>) {
     let mut scheduler = Scheduler::new();
     let builder = thread::Builder::new().name("scheduler".to_string());
-    builder.spawn(move || scheduler.listen(receiver)).expect("Failed to spawn scheduler thread.");
+    builder
+        .spawn(move || scheduler.listen(receiver))
+        .expect("Failed to spawn scheduler thread.");
 }
