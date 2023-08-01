@@ -11,6 +11,7 @@ use std::{collections::HashMap, sync::mpsc::Sender};
 
 use crate::fetcher::{recurring_fetch, Feed};
 use crate::model::AsyncTask;
+use crate::deps::mime;
 
 #[derive(Clone)]
 struct AppState {
