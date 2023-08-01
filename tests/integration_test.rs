@@ -14,6 +14,8 @@ mod tests {
     use std::time::Duration;
     use tokio::runtime::Builder;
 
+    static FILE_NAME: &'static str = "/tmp/rust_test_output.txt";
+
     fn confirm_wc(file_path: &str, expected: i32) {
         let output = Command::new("wc")
             .arg(file_path)
@@ -31,14 +33,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn scheduler() {
-        let (sender, receiver) = mpsc::channel();
-        scheduler::init(receiver);
-
-        let file_name: &str = "/tmp/rust_test_output.txt";
-
-        // Clear the file and ensure it exists
+    fn touch(file_name: &str) {
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -46,21 +41,36 @@ mod tests {
             .open(file_name)
             .unwrap();
         file.write_all(b"").unwrap();
+    }
 
-        let task = AsyncTask::new(1, async move {
-            let duration = Duration::from_millis(100);
+    fn create_task(id: usize, millis: u64, count: i32) -> AsyncTask {
+        let task = AsyncTask::new(id, async move {
+            let duration = Duration::from_millis(millis);
             let mut interval = tokio::time::interval(duration);
-            let mut file = File::create(file_name).unwrap();
+            let mut file = File::create(FILE_NAME).unwrap();
 
-            for i in 0..5 {
+            for i in 0..count {
                 interval.tick().await;
                 file.write_all(i.to_string().as_bytes()).unwrap();
                 file.write_all(b"\n").unwrap();
             }
         });
 
+        task
+    }
+
+    #[test]
+    fn scheduler() {
+        let (sender, receiver) = mpsc::channel();
+        scheduler::init(receiver);
+
+        // Clear the file and ensure it exists
+        touch(FILE_NAME);
+
+        let task = create_task(1, 100, 5);
+
         // File should still be empty before the send the task to the scheduler
-        confirm_wc(file_name, 0);
+        confirm_wc(FILE_NAME, 0);
         match sender.send(task) {
             Ok(_) => assert!(true),
             Err(_) => assert!(false),
@@ -68,7 +78,7 @@ mod tests {
 
         // Wait for the task to finish and then confirm the file has the correct contents
         thread::sleep(Duration::from_millis(550));
-        confirm_wc(file_name, 5);
+        confirm_wc(FILE_NAME, 5);
     }
 
     #[test]
