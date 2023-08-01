@@ -1,6 +1,7 @@
 use crate::fetcher::transit::FeedMessage;
 use prost::Message;
 use reqwest::Client;
+use tokio::time::{Duration, Interval};
 
 mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
@@ -10,7 +11,7 @@ use std::collections::HashMap;
 use reqwest::header::{HeaderMap, HeaderName};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Feed {
     pub id: usize,
     pub name: String,
@@ -30,7 +31,7 @@ impl Feed {
     }
 }
 
-pub async fn fetch(feed: &Feed) -> usize {
+async fn fetch(feed: &Feed) -> usize {
     println!("Fetching {}", feed.name);
 
     let client = Client::new();
@@ -55,6 +56,18 @@ pub async fn fetch(feed: &Feed) -> usize {
     println!("{}: {} trip updates", feed.name, num_trip_updates);
 
     num_trip_updates
+}
+
+pub async fn recurring_fetch(feed: Feed) {
+    let interval_duration = Duration::from_secs(feed.frequency);
+    let mut interval: Interval = tokio::time::interval(interval_duration);
+
+    loop {
+        interval.tick().await;
+        // It might technically be more accurate timer-wise to spawn this
+        // like so: tokio::spawn(fetch(feed.clone()));
+        fetch(&feed).await;
+    }
 }
 
 #[cfg(test)]

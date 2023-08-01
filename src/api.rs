@@ -8,22 +8,9 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, RwLock};
 use std::{collections::HashMap, sync::mpsc::Sender};
-use tokio::time::{Duration, Interval};
 
-use crate::fetcher::{fetch, Feed};
+use crate::fetcher::{recurring_fetch, Feed};
 use crate::model::AsyncTask;
-
-async fn recurring_task(feed: Feed) {
-    let interval_duration = Duration::from_secs(feed.frequency);
-    let mut interval: Interval = tokio::time::interval(interval_duration);
-
-    loop {
-        interval.tick().await;
-        // It might technically be more accurate timer-wise to spawn this
-        // like so: tokio::spawn(fetch(feed.clone()));
-        fetch(&feed).await;
-    }
-}
 
 #[derive(Clone)]
 struct AppState {
@@ -84,7 +71,7 @@ async fn post_handler(
     state.db.write().unwrap().insert(id, feed.clone());
     *(state.feed_id.write().unwrap()) += 1;
 
-    let action = AsyncTask::new(id, recurring_task(feed.clone()));
+    let action = AsyncTask::new(id, recurring_fetch(feed.clone()));
     let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
@@ -137,7 +124,7 @@ async fn put_handler(
     };
 
     db.insert(id, feed.clone());
-    let action = AsyncTask::update(id, recurring_task(feed.clone()));
+    let action = AsyncTask::update(id, recurring_fetch(feed.clone()));
     let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
