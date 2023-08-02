@@ -11,7 +11,6 @@ use std::{collections::HashMap, sync::mpsc::Sender};
 
 use crate::fetcher::{recurring_fetch, Feed};
 use crate::model::AsyncTask;
-use crate::deps::mime;
 
 #[derive(Clone)]
 struct AppState {
@@ -168,6 +167,7 @@ async fn list_handler(state: State<AppState>) -> impl IntoResponse {
 #[cfg(test)]
 mod api_tests {
     use crate::fetcher::Feed;
+    use crate::deps::mime;
 
     use super::*;
     use axum::{
