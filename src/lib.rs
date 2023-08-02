@@ -10,4 +10,7 @@ pub mod scheduler;
 pub mod deps {
     // mime = "0.3.17" -> https://docs.rs/mime/latest/mime/
     pub mod mime;
+
+    // prost-build = "0.11" -> https://docs.rs/prost-build/0.11.0/prost_build/
+    pub mod prost_build;
 }
