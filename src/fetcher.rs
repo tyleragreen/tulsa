@@ -1,5 +1,5 @@
 use crate::fetcher::transit::FeedMessage;
-use prost::Message;
+use prost::Message; // needed for FeedMessage::decode
 use reqwest::Client;
 use tokio::time::{Duration, Interval};
 
