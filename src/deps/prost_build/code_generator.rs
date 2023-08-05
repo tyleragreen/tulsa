@@ -1,10 +1,9 @@
 use std::ascii;
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::iter;
 
 use itertools::{Either, Itertools};
-use log::debug;
 use multimap::MultiMap;
 use prost_types::field_descriptor_proto::{Label, Type};
 use prost_types::source_code_info::Location;
@@ -78,12 +77,6 @@ impl<'a> CodeGenerator<'a> {
             buf,
         };
 
-        debug!(
-            "file: {:?}, package: {:?}",
-            file.name.as_ref().unwrap(),
-            code_gen.package
-        );
-
         code_gen.path.push(4);
         for (idx, message) in file.message_type.into_iter().enumerate() {
             code_gen.path.push(idx as i32);
@@ -117,8 +110,6 @@ impl<'a> CodeGenerator<'a> {
     }
 
     fn append_message(&mut self, message: DescriptorProto) {
-        debug!("  message: {:?}", message.name());
-
         let message_name = message.name().to_string();
         let fq_message_name = format!(
             "{}{}.{}",
@@ -320,13 +311,6 @@ impl<'a> CodeGenerator<'a> {
                 .get_first_field(&fq_message_name, field.name())
                 .is_some());
 
-        debug!(
-            "    field: {:?}, type: {:?}, boxed: {}",
-            field.name(),
-            ty,
-            boxed
-        );
-
         self.append_doc(fq_message_name, Some(field.name()));
 
         if deprecated {
@@ -444,13 +428,6 @@ impl<'a> CodeGenerator<'a> {
     ) {
         let key_ty = self.resolve_type(key, fq_message_name);
         let value_ty = self.resolve_type(value, fq_message_name);
-
-        debug!(
-            "    map field: {:?}, key type: {:?}, value type: {:?}",
-            field.name(),
-            key_ty,
-            value_ty
-        );
 
         self.append_doc(fq_message_name, Some(field.name()));
         self.push_indent();
@@ -572,13 +549,6 @@ impl<'a> CodeGenerator<'a> {
                     .get_first_field(&oneof_name, field.name())
                     .is_some());
 
-            debug!(
-                "    oneof: {:?}, type: {:?}, boxed: {}",
-                field.name(),
-                ty,
-                boxed
-            );
-
             if boxed {
                 self.buf.push_str(&format!(
                     "{}(::prost::alloc::boxed::Box<{}>),\n",
@@ -623,8 +593,6 @@ impl<'a> CodeGenerator<'a> {
     }
 
     fn append_enum(&mut self, desc: EnumDescriptorProto) {
-        debug!("  enum: {:?}", desc.name());
-
         let proto_enum_name = desc.name();
         let enum_name = to_upper_camel(proto_enum_name);
 
@@ -770,8 +738,6 @@ impl<'a> CodeGenerator<'a> {
 
     fn push_service(&mut self, service: ServiceDescriptorProto) {
         let name = service.name().to_owned();
-        debug!("  service: {:?}", name);
-
         let comments = self
             .location()
             .map(Comments::from_location)
@@ -783,8 +749,6 @@ impl<'a> CodeGenerator<'a> {
             .into_iter()
             .enumerate()
             .map(|(idx, mut method)| {
-                debug!("  method: {:?}", method.name());
-
                 self.path.push(idx as i32);
                 let comments = self
                     .location()
@@ -1067,11 +1031,9 @@ fn unescape_c_escape_string(s: &str) -> Vec<u8> {
                     p += 1;
                 }
                 b'0'..=b'7' => {
-                    debug!("another octal: {}, offset: {}", s, &s[p..]);
                     let mut octal = 0;
                     for _ in 0..3 {
                         if p < len && src[p] >= b'0' && src[p] <= b'7' {
-                            debug!("\toctal: {}", octal);
                             octal = octal * 8 + (src[p] - b'0');
                             p += 1;
                         } else {
