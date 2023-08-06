@@ -40,13 +40,13 @@ struct AppState {
     sender: Arc<Mutex<dyn TaskSender + Send + 'static>>,
 }
 
-pub fn app<S>(sender: S) -> Router
+pub fn app<S>(sender: Arc<Mutex<S>>) -> Router
 where S: TaskSender + Send + 'static
 {
     let state = AppState {
         feed_id: Arc::new(RwLock::new(1)),
         db: Arc::new(RwLock::new(HashMap::new())),
-        sender: Arc::new(Mutex::new(sender)),
+        sender,
     };
     Router::new()
         .route("/", get(status_handler))
@@ -205,6 +205,10 @@ mod api_tests {
                 tasks: Arc::new(Mutex::new(Vec::new())),
             }
         }
+
+        fn count(&self) -> usize {
+            self.tasks.lock().unwrap().iter().count()
+        }
     }
 
     impl From<CreateFeed> for Body {
@@ -215,13 +219,14 @@ mod api_tests {
 
     #[tokio::test]
     async fn status() {
-        let sender  = MockSender::new();
-        let response = app(sender)
+        let sender = Arc::new(Mutex::new(MockSender::new()));
+        let response = app(sender.clone())
             .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
             .await
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(sender.lock().unwrap().count(), 0);
 
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         assert_eq!(&body[..], b"{\"status\":\"OK\"}");
@@ -229,8 +234,8 @@ mod api_tests {
 
     #[tokio::test]
     async fn invalid() {
-        let sender  = MockSender::new();
-        let response = app(sender)
+        let sender = Arc::new(Mutex::new(MockSender::new()));
+        let response = app(sender.clone())
             .oneshot(
                 Request::builder()
                     .uri("/feed/abc")
@@ -245,8 +250,8 @@ mod api_tests {
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         assert_eq!(body.len(), 0);
 
-        let sender  = MockSender::new();
-        let response = app(sender)
+        let sender = Arc::new(Mutex::new(MockSender::new()));
+        let response = app(sender.clone())
             .oneshot(
                 Request::builder()
                     .uri("/feed/-1")
@@ -264,7 +269,6 @@ mod api_tests {
 
     #[tokio::test]
     async fn invalid_put() {
-        let sender = MockSender::new();
         let headers = HashMap::from([("auth".to_string(), "key".to_string())]);
         let input = CreateFeed {
             name: "Name".to_string(),
@@ -272,7 +276,8 @@ mod api_tests {
             frequency: 10,
             headers,
         };
-        let response = app(sender)
+        let sender = Arc::new(Mutex::new(MockSender::new()));
+        let response = app(sender.clone())
             .oneshot(
                 Request::builder()
                     .method(http::Method::PUT)
@@ -286,8 +291,8 @@ mod api_tests {
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
-        let sender  = MockSender::new();
-        let response = app(sender)
+        let sender = Arc::new(Mutex::new(MockSender::new()));
+        let response = app(sender.clone())
             .oneshot(
                 Request::builder()
                     .method(http::Method::PUT)
@@ -311,8 +316,9 @@ mod api_tests {
             frequency: 10,
             headers,
         };
-        let sender = MockSender::new();
-        let response = app(sender)
+        let sender = Arc::new(Mutex::new(MockSender::new()));
+        assert_eq!(sender.lock().unwrap().count(), 0);
+        let response = app(sender.clone())
             .oneshot(
                 Request::builder()
                     .method(http::Method::POST)
@@ -325,6 +331,7 @@ mod api_tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::CREATED);
+        assert_eq!(sender.lock().unwrap().count(), 1);
 
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         let f: Feed = serde_json::from_slice(&body).unwrap();
@@ -352,10 +359,10 @@ mod api_tests {
             headers: HashMap::new(),
         };
 
-        let sender = MockSender::new();
+        let sender = Arc::new(Mutex::new(MockSender::new()));
         tokio::spawn(async move {
             axum::Server::bind(&addr.parse().unwrap())
-                .serve(app(sender).into_make_service())
+                .serve(app(sender.clone()).into_make_service())
                 .await
                 .unwrap();
         });

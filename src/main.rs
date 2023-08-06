@@ -1,5 +1,7 @@
 use std::sync::mpsc;
 use tokio::runtime::Builder;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use gtfs_realtime_rust::api;
 use gtfs_realtime_rust::scheduler;
@@ -22,7 +24,7 @@ fn main() {
 
     runtime.block_on(async {
         axum::Server::bind(&address.parse().unwrap())
-            .serve(api::app(sender).into_make_service())
+            .serve(api::app(Arc::new(Mutex::new(sender))).into_make_service())
             .await
             .unwrap();
     });
