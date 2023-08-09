@@ -1,6 +1,6 @@
 use std::ascii;
 use std::borrow::Cow;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::iter;
 
 use itertools::{Either, Itertools};
