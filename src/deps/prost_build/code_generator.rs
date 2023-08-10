@@ -13,11 +13,11 @@ use prost_types::{
     SourceCodeInfo,
 };
 
-use crate::ast::{Comments, Method, Service};
-use crate::extern_paths::ExternPaths;
-use crate::ident::{to_snake, to_upper_camel};
-use crate::message_graph::MessageGraph;
-use crate::{BytesType, Config, MapType};
+use super::ast::{Comments, Method, Service};
+use super::extern_paths::ExternPaths;
+use super::ident::{to_snake, to_upper_camel};
+use super::message_graph::MessageGraph;
+use super::{BytesType, Config, MapType};
 
 #[derive(PartialEq)]
 enum Syntax {

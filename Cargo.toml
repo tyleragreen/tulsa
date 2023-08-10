@@ -15,7 +15,7 @@ tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
 tower = "0.4.13"
 
 [build-dependencies]
-prost = "0.11" # for prost_build
+prost = "0.11"
 prost-types = "0.11" # for prost_build
 petgraph = "0.6.3" # for prost_build
 itertools = "0.11.0" # for prost_build

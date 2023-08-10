@@ -2,7 +2,7 @@ use std::collections::{hash_map, HashMap};
 
 use itertools::Itertools;
 
-use crate::ident::{to_snake, to_upper_camel};
+use super::ident::{to_snake, to_upper_camel};
 
 fn validate_proto_path(path: &str) -> Result<(), String> {
     if path.chars().next().map(|c| c != '.').unwrap_or(true) {
