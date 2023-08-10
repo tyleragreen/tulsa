@@ -87,7 +87,6 @@ mod tests {
             .expect("Failed to read the file");
 
         let mut server = mockito::Server::new();
-        let host = server.host_with_port();
         server
             .mock("GET", "/gtfs")
             .with_status(200)
@@ -98,7 +97,7 @@ mod tests {
             id: 1,
             name: "Test".to_string(),
             frequency: 5,
-            url: format!("http://{}{}", host, "/gtfs"),
+            url: format!("{}/gtfs", server.url()),
             headers: HashMap::new(),
         };
 
