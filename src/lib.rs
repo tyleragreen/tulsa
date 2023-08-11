@@ -10,4 +10,6 @@ pub mod scheduler;
 pub mod deps {
     // mime = "0.3.17" -> https://docs.rs/mime/latest/mime/
     pub mod mime;
+    // mockito = "1.1.0" -> https://docs.rs/mockito/1.1.0/mockito/
+    pub mod mockito;
 }

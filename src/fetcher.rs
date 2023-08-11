@@ -77,6 +77,7 @@ mod tests {
     use std::fs;
     use std::io::Read;
     use std::vec::Vec;
+    use crate::deps::mockito;
 
     #[tokio::test]
     async fn test_fetcher() {
@@ -87,7 +88,7 @@ mod tests {
             .expect("Failed to read the file");
 
         let mut server = mockito::Server::new();
-        server
+        let mock = server
             .mock("GET", "/gtfs")
             .with_status(200)
             .with_body(buffer)
@@ -103,6 +104,7 @@ mod tests {
 
         let num_found = fetch(&feed).await;
 
+        mock.assert();
         assert_eq!(num_found, 243);
     }
 }
