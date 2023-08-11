@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{Write, Read};
 use std::net::TcpListener;
 use std::thread;
 
@@ -27,10 +27,10 @@ impl Builder {
 }
 
 pub struct Server {}
-
+use std::fs;
 impl Server {
     pub fn new() -> Server {
-        let address = "127.0.0.1";
+        let address = "localhost";
         let port = 5001;
         let listener = TcpListener::bind((address, port)).unwrap();
         
@@ -41,14 +41,23 @@ impl Server {
                     Ok(mut stream) => {
                         println!("new connection");
                         thread::spawn(move || {
-                            let data: Vec<u8> = vec![1, 2, 3];
+                            dbg!(&stream);
+                            //let mut buffer = [0; 1024];
+                            //stream.read(&mut buffer).unwrap();
+                            //println!("request: {}", String::from_utf8_lossy(&buffer[..]));
+                            //let data: Vec<u8> = vec![1, 2, 3];
+
+                            let mut buffer: Vec<u8> = Vec::new();
+                            let mut file = fs::File::open("fixtures/gtfs-07132023-123501").expect("Failed to open the file");
+                            file.read_to_end(&mut buffer)
+                                .expect("Failed to read the file");
                             let response = format!(
                                 "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
-                                data.len(),
-                                String::from_utf8(data).unwrap()
+                                buffer.len(),
+                                String::from_utf8(buffer).unwrap()
                             );
                             stream.write_all(response.as_bytes()).unwrap();
-                            stream.flush().unwrap();
+                            //stream.flush().unwrap();
                         });
                     }
                     Err(e) => {
@@ -65,6 +74,6 @@ impl Server {
     }
 
     pub fn url(&self) -> String {
-        "http://127.0.0.1:5001".to_string()
+        "http://localhost:5001".to_string()
     }
 }

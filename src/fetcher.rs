@@ -42,7 +42,10 @@ async fn fetch(feed: &Feed) -> usize {
         .headers(headers)
         .send()
         .await
-        .expect("fetch failed!");
+        .map_err(|e| {
+            eprintln!("Error fetching {}: {}", feed.name, e);
+            e
+        }).unwrap();
     let bytes = response.bytes().await.unwrap();
 
     let b = FeedMessage::decode(bytes).unwrap();
@@ -81,9 +84,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetcher() {
-        let path = "fixtures/gtfs-07132023-123501";
         let mut buffer: Vec<u8> = Vec::new();
-        let mut file = fs::File::open(path).expect("Failed to open the file");
+        let mut file = fs::File::open("fixtures/gtfs-07132023-123501")
+            .map_err(|e| eprintln!("Failed to open the file: {}", e))
+            .unwrap();
         file.read_to_end(&mut buffer)
             .expect("Failed to read the file");
 
