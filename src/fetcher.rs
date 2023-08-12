@@ -46,9 +46,13 @@ async fn fetch(feed: &Feed) -> usize {
             eprintln!("Error fetching {}: {}", feed.name, e);
             e
         }).unwrap();
-    let bytes = response.bytes().await.unwrap();
+    let bytes = response.bytes().await
+        .map_err(|e| eprintln!("Error reading {}: {}", feed.name, e))
+        .unwrap();
 
-    let b = FeedMessage::decode(bytes).unwrap();
+    let b = FeedMessage::decode(bytes)
+        .map_err(|e| eprintln!("Error decoding {}: {}", feed.name, e))
+        .unwrap();
 
     let mut num_trip_updates: usize = 0;
     for e in b.entity {
