@@ -1,5 +1,16 @@
 use std::io::Read;
 use std::thread;
+use std::fs::File;
+use tokio::net::TcpListener;
+use tokio::runtime;
+use tokio::task::spawn;
+use hyper::server::conn::Http;
+use hyper::service::service_fn;
+use hyper::{Body, Request, Response};
+
+mod error;
+
+use error::MockError;
 
 pub struct Mock {}
 
@@ -30,23 +41,12 @@ pub struct Server {
     port: u16,
 }
 
-use std::fs;
-use tokio::net::TcpListener;
-use tokio::runtime;
-use tokio::task::spawn;
-use hyper::server::conn::Http;
-use hyper::service::service_fn;
-use hyper::{Body, Request, Response};
-
-mod error;
-
-use error::MockError;
-
 async fn handle_request(
     _request: Request<Body>,
 ) -> Result<Response<Body>, MockError> {
     let mut buffer: Vec<u8> = Vec::new();
-    let mut file = fs::File::open("fixtures/gtfs-07132023-123501").expect("Failed to open the file");
+    let mut file = File::open("fixtures/gtfs-07132023-123501")
+        .expect("Failed to open the file");
     file.read_to_end(&mut buffer)
         .expect("Failed to read the file");
 
@@ -63,6 +63,7 @@ impl Server {
             .enable_all()
             .build()
             .unwrap();
+
         thread::spawn(move || {
             runtime.block_on(async {
                 let listener = TcpListener::bind(format!("{}:{}", host, port))
