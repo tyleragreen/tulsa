@@ -25,21 +25,25 @@ impl Builder {
     }
 }
 
-pub struct Server {}
+pub struct Server {
+    host: &'static str,
+    port: u16,
+}
+
 use std::fs;
 use tokio::net::TcpListener;
 use tokio::runtime;
 use tokio::task::spawn;
 use hyper::server::conn::Http;
 use hyper::service::service_fn;
-use hyper::{Body, Request as HyperRequest, Response};
+use hyper::{Body, Request, Response};
 
 mod error;
 
 use error::MockError;
 
 async fn handle_request(
-    _request: HyperRequest<Body>,
+    _request: Request<Body>,
 ) -> Result<Response<Body>, MockError> {
     let mut buffer: Vec<u8> = Vec::new();
     let mut file = fs::File::open("fixtures/gtfs-07132023-123501").expect("Failed to open the file");
@@ -52,15 +56,16 @@ async fn handle_request(
 
 impl Server {
     pub fn new() -> Server {
-        let address = "localhost";
-        let port = 5001;
+        let host = "localhost";
+        let port: u16 = 5001;
+
         let runtime = runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
         thread::spawn(move || {
             runtime.block_on(async {
-                let listener = TcpListener::bind(format!("{}:{}", address, port))
+                let listener = TcpListener::bind(format!("{}:{}", host, port))
                     .await
                     .unwrap();
 
@@ -69,7 +74,7 @@ impl Server {
                         let _ = Http::new()
                             .serve_connection(
                                 stream,
-                                service_fn(move |request: HyperRequest<Body>| {
+                                service_fn(move |request: Request<Body>| {
                                     handle_request(request)
                                 }),
                             )
@@ -78,7 +83,11 @@ impl Server {
                 }
             });
         });
-        Server {}
+
+        Server {
+            host,
+            port
+        }
     }
 
     pub fn mock(&self, _method: &'static str, _path: &'static str) -> Builder {
@@ -86,6 +95,6 @@ impl Server {
     }
 
     pub fn url(&self) -> String {
-        "http://localhost:5001".to_string()
+        format!("http://{}:{}", self.host, self.port)
     }
 }
