@@ -34,25 +34,13 @@ use hyper::server::conn::Http;
 use hyper::service::service_fn;
 use hyper::{Body, Request as HyperRequest, Response};
 
-use std::error::Error;
-use std::fmt;
+mod error;
 
-#[derive(Debug)]
-struct MyError {
-    message: String,
-}
-
-impl fmt::Display for MyError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "MyError: {}", self.message)
-    }
-}
-
-impl Error for MyError {}
+use error::MockError;
 
 async fn handle_request(
     _request: HyperRequest<Body>,
-) -> Result<Response<Body>, MyError> {
+) -> Result<Response<Body>, MockError> {
     let mut buffer: Vec<u8> = Vec::new();
     let mut file = fs::File::open("fixtures/gtfs-07132023-123501").expect("Failed to open the file");
     file.read_to_end(&mut buffer)
