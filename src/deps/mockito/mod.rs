@@ -1,4 +1,5 @@
 use std::io::Read;
+use std::net::SocketAddr;
 use std::thread;
 use std::fs::File;
 use tokio::net::TcpListener;
@@ -37,8 +38,7 @@ impl Builder {
 }
 
 pub struct Server {
-    host: &'static str,
-    port: u16,
+    address: SocketAddr,
 }
 
 async fn handle_request(
@@ -56,8 +56,7 @@ async fn handle_request(
 
 impl Server {
     pub fn new() -> Server {
-        let host = "localhost";
-        let port: u16 = 5001;
+        let address = SocketAddr::from(([127, 0, 0, 1], 5001));
 
         let runtime = runtime::Builder::new_current_thread()
             .enable_all()
@@ -66,7 +65,7 @@ impl Server {
 
         thread::spawn(move || {
             runtime.block_on(async {
-                let listener = TcpListener::bind(format!("{}:{}", host, port))
+                let listener = TcpListener::bind(address)
                     .await
                     .unwrap();
 
@@ -86,8 +85,7 @@ impl Server {
         });
 
         Server {
-            host,
-            port
+            address
         }
     }
 
@@ -96,6 +94,6 @@ impl Server {
     }
 
     pub fn url(&self) -> String {
-        format!("http://{}:{}", self.host, self.port)
+        format!("http://{}", self.address.to_string())
     }
 }
