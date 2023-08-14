@@ -8,6 +8,7 @@ use tokio::task::spawn;
 use hyper::server::conn::Http;
 use hyper::service::service_fn;
 use hyper::{Body, Request, Response};
+use std::sync::{Arc, RwLock};
 
 mod error;
 
@@ -37,12 +38,26 @@ impl Builder {
     }
 }
 
+struct State {
+    mocks: Vec<Mock>,
+}
+
+impl State {
+    fn new() -> Self {
+        State {
+            mocks: vec![],
+        }
+    }
+}
+
 pub struct Server {
     address: SocketAddr,
+    state: Arc<RwLock<State>>,
 }
 
 async fn handle_request(
     _request: Request<Body>,
+    _state: Arc<RwLock<State>>,
 ) -> Result<Response<Body>, MockError> {
     let mut buffer: Vec<u8> = Vec::new();
     let mut file = File::open("fixtures/gtfs-07132023-123501")
@@ -57,12 +72,14 @@ async fn handle_request(
 impl Server {
     pub fn new() -> Server {
         let address = SocketAddr::from(([127, 0, 0, 1], 5001));
+        let state = Arc::new(RwLock::new(State::new()));
 
         let runtime = runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
 
+        let state_clone = state.clone();
         thread::spawn(move || {
             runtime.block_on(async {
                 let listener = TcpListener::bind(address)
@@ -70,12 +87,13 @@ impl Server {
                     .unwrap();
 
                 while let Ok((stream, _)) = listener.accept().await {
+                    let mutex = state_clone.clone();
                     spawn(async move {
                         let _ = Http::new()
                             .serve_connection(
                                 stream,
                                 service_fn(move |request: Request<Body>| {
-                                    handle_request(request)
+                                    handle_request(request, mutex.clone())
                                 }),
                             )
                             .await;
@@ -85,7 +103,8 @@ impl Server {
         });
 
         Server {
-            address
+            address,
+            state,
         }
     }
 
