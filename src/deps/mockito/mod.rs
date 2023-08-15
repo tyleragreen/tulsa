@@ -63,6 +63,13 @@ impl Mock {
     pub fn assert(&self) -> bool {
         true
     }
+    
+    pub fn matches(&self, request: &mut Request<Body>) -> bool {
+        let method = request.method().to_string();
+        let path = request.uri().path().to_string();
+
+        method == self.method && path == self.path
+    }
 }
 
 struct State {
@@ -83,17 +90,27 @@ pub struct Server {
 }
 
 async fn handle_request(
-    _request: Request<Body>,
-    _state: Arc<RwLock<State>>,
+    request: Request<Body>,
+    state: Arc<RwLock<State>>,
 ) -> Result<HyperResponse<Body>, MockError> {
-    let mut buffer: Vec<u8> = Vec::new();
-    let mut file = File::open("fixtures/gtfs-07132023-123501")
-        .expect("Failed to open the file");
-    file.read_to_end(&mut buffer)
-        .expect("Failed to read the file");
+    let state_b = state.clone();
+    let mut state = state_b.write().unwrap();
+    let mut matching: Vec<&mut Mock> = vec![];
 
-    let response = HyperResponse::new(Body::from(buffer));
-    Ok(response)
+    for mock in state.mocks.iter_mut() {
+        if mock.matches(&mut request) {
+            matching.push(mock);
+        }
+    }
+    let mock = matching.first_mut();
+
+    if let Some(mock) = mock {
+        mock.num_called += 1;
+        let response = HyperResponse::new(Body::empty());
+        Ok(response)
+    } else {
+        panic!("No matching mock found");
+    }
 }
 
 impl Server {
