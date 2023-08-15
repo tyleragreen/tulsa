@@ -1,7 +1,5 @@
-use std::io::Read;
 use std::net::SocketAddr;
 use std::thread;
-use std::fs::File;
 use tokio::net::TcpListener;
 use tokio::runtime;
 use tokio::task::spawn;
@@ -15,6 +13,7 @@ mod error;
 
 use error::MockError;
 
+#[derive(Clone)]
 pub struct Response {
     status: StatusCode,
     body: Vec<u8>,
@@ -29,7 +28,9 @@ impl Default for Response {
     }
 }
 
+#[derive(Clone)]
 pub struct Mock {
+    state: Arc<RwLock<State>>,
     method: String,
     path: String,
     response: Response,
@@ -37,8 +38,9 @@ pub struct Mock {
 }
 
 impl Mock {
-    pub fn new(method: &str, path: &str) -> Mock {
+    pub fn new(state: Arc<RwLock<State>>, method: &str, path: &str) -> Mock {
         Mock {
+            state,
             method: method.to_owned().to_uppercase(),
             path: path.to_owned(),
             response: Response::default(),
@@ -57,14 +59,19 @@ impl Mock {
     }
 
     pub fn create(self) -> Mock {
+        let state = self.state.clone();
+        let mut state = state.write().unwrap();
+        state.mocks.push(self.clone());
         self
     }
 
-    pub fn assert(&self) -> bool {
-        true
+    pub fn assert(&self) {
+        if self.num_called == 0 {
+            panic!("Mock not called");
+        }
     }
     
-    pub fn matches(&self, request: &mut Request<Body>) -> bool {
+    pub fn matches(&self, request: &Request<Body>) -> bool {
         let method = request.method().to_string();
         let path = request.uri().path().to_string();
 
@@ -72,7 +79,7 @@ impl Mock {
     }
 }
 
-struct State {
+pub struct State {
     mocks: Vec<Mock>,
 }
 
@@ -98,7 +105,7 @@ async fn handle_request(
     let mut matching: Vec<&mut Mock> = vec![];
 
     for mock in state.mocks.iter_mut() {
-        if mock.matches(&mut request) {
+        if mock.matches(&request) {
             matching.push(mock);
         }
     }
@@ -153,7 +160,7 @@ impl Server {
     }
 
     pub fn mock(&self, method: &str, path: &str) -> Mock {
-        Mock::new(method, path)
+        Mock::new(self.state.clone(), method, path)
     }
 
     pub fn url(&self) -> String {

@@ -95,7 +95,7 @@ mod tests {
         file.read_to_end(&mut buffer)
             .expect("Failed to read the file");
 
-        let mut server = mockito::Server::new();
+        let server = mockito::Server::new();
         let mock = server
             .mock("GET", "/gtfs")
             .with_status(200)
