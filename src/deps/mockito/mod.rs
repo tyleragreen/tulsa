@@ -5,36 +5,63 @@ use std::fs::File;
 use tokio::net::TcpListener;
 use tokio::runtime;
 use tokio::task::spawn;
+use hyper::StatusCode;
 use hyper::server::conn::Http;
 use hyper::service::service_fn;
-use hyper::{Body, Request, Response};
+use hyper::{Body, Request, Response as HyperResponse};
 use std::sync::{Arc, RwLock};
 
 mod error;
 
 use error::MockError;
 
-pub struct Mock {}
+pub struct Response {
+    status: StatusCode,
+    body: Vec<u8>,
+}
 
-impl Mock {
-    pub fn assert(&self) -> bool {
-        true
+impl Default for Response {
+    fn default() -> Self {
+        Response {
+            status: StatusCode::OK,
+            body: vec![],
+        }
     }
 }
 
-pub struct Builder {}
+pub struct Mock {
+    method: String,
+    path: String,
+    response: Response,
+    num_called: usize,
+}
 
-impl Builder {
-    pub fn with_status(&mut self, _status: u16) -> &mut Builder {
+impl Mock {
+    pub fn new(method: &str, path: &str) -> Mock {
+        Mock {
+            method: method.to_owned().to_uppercase(),
+            path: path.to_owned(),
+            response: Response::default(),
+            num_called: 0,
+        }
+    }
+
+    pub fn with_status(mut self, status: u16) -> Mock {
+        self.response.status = StatusCode::from_u16(status).unwrap();
         self
     }
 
-    pub fn with_body(&mut self, _body: Vec<u8>) -> &mut Builder {
+    pub fn with_body(mut self, body: Vec<u8>) -> Mock {
+        self.response.body = body;
         self
     }
 
-    pub fn create(&self) -> Mock {
-        Mock {}
+    pub fn create(self) -> Mock {
+        self
+    }
+
+    pub fn assert(&self) -> bool {
+        true
     }
 }
 
@@ -58,14 +85,14 @@ pub struct Server {
 async fn handle_request(
     _request: Request<Body>,
     _state: Arc<RwLock<State>>,
-) -> Result<Response<Body>, MockError> {
+) -> Result<HyperResponse<Body>, MockError> {
     let mut buffer: Vec<u8> = Vec::new();
     let mut file = File::open("fixtures/gtfs-07132023-123501")
         .expect("Failed to open the file");
     file.read_to_end(&mut buffer)
         .expect("Failed to read the file");
 
-    let response = Response::new(Body::from(buffer));
+    let response = HyperResponse::new(Body::from(buffer));
     Ok(response)
 }
 
@@ -79,7 +106,7 @@ impl Server {
             .build()
             .unwrap();
 
-        let state_clone = state.clone();
+        let state_b = state.clone();
         thread::spawn(move || {
             runtime.block_on(async {
                 let listener = TcpListener::bind(address)
@@ -87,13 +114,13 @@ impl Server {
                     .unwrap();
 
                 while let Ok((stream, _)) = listener.accept().await {
-                    let mutex = state_clone.clone();
+                    let state_c = state_b.clone();
                     spawn(async move {
                         let _ = Http::new()
                             .serve_connection(
                                 stream,
                                 service_fn(move |request: Request<Body>| {
-                                    handle_request(request, mutex.clone())
+                                    handle_request(request, state_c.clone())
                                 }),
                             )
                             .await;
@@ -108,8 +135,8 @@ impl Server {
         }
     }
 
-    pub fn mock(&self, _method: &'static str, _path: &'static str) -> Builder {
-        Builder {}
+    pub fn mock(&self, method: &str, path: &str) -> Mock {
+        Mock::new(method, path)
     }
 
     pub fn url(&self) -> String {
