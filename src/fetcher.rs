@@ -46,6 +46,7 @@ async fn fetch(feed: &Feed) -> usize {
             eprintln!("Error fetching {}: {}", feed.name, e);
             e
         }).unwrap();
+
     let bytes = response.bytes().await
         .map_err(|e| eprintln!("Error reading {}: {}", feed.name, e))
         .unwrap();
