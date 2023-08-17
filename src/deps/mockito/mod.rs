@@ -3,95 +3,16 @@ use std::thread;
 use tokio::net::TcpListener;
 use tokio::runtime;
 use tokio::task::spawn;
-use hyper::StatusCode;
 use hyper::server::conn::Http;
 use hyper::service::service_fn;
 use hyper::{Body, Request, Response as HyperResponse};
 use std::sync::{Arc, RwLock};
-use rand;
 
 mod error;
+mod mock;
 
 use error::MockError;
-
-#[derive(Clone)]
-pub struct Response {
-    status: StatusCode,
-    body: Vec<u8>,
-}
-
-impl Default for Response {
-    fn default() -> Self {
-        Response {
-            status: StatusCode::OK,
-            body: vec![],
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct InnerMock {
-    id: usize,
-    method: String,
-    path: String,
-    response: Response,
-    num_called: usize,
-}
-
-#[derive(Clone)]
-pub struct Mock {
-    state: Arc<RwLock<State>>,
-    inner: InnerMock,
-}
-
-impl Mock {
-    pub fn new(state: Arc<RwLock<State>>, method: &str, path: &str) -> Mock {
-        Mock {
-            state,
-            inner: InnerMock {
-                id: rand::random(),
-                method: method.to_owned().to_uppercase(),
-                path: path.to_owned(),
-                response: Response::default(),
-                num_called: 0,
-            }
-        }
-    }
-
-    pub fn with_status(mut self, status: u16) -> Mock {
-        self.inner.response.status = StatusCode::from_u16(status).unwrap();
-        self
-    }
-
-    pub fn with_body(mut self, body: Vec<u8>) -> Mock {
-        self.inner.response.body = body;
-        self
-    }
-
-    pub fn create(self) -> Mock {
-        let state = self.state.clone();
-        let mut state = state.write().unwrap();
-        state.mocks.push(self.clone());
-        self
-    }
-
-    pub fn assert(&self) {
-        let state = self.state.clone();
-        let state = state.read().unwrap();
-        let num_called = state.mocks.iter().find(|mock| mock.inner.id == self.inner.id).unwrap().inner.num_called;
-
-        if num_called == 0 {
-            panic!("Mock not called");
-        }
-    }
-    
-    pub fn matches(&self, request: &Request<Body>) -> bool {
-        let method = request.method().to_string();
-        let path = request.uri().path().to_string();
-
-        method == self.inner.method && path == self.inner.path
-    }
-}
+use mock::Mock;
 
 pub struct State {
     mocks: Vec<Mock>,
@@ -108,30 +29,6 @@ impl State {
 pub struct Server {
     address: SocketAddr,
     state: Arc<RwLock<State>>,
-}
-
-async fn handle_request(
-    request: Request<Body>,
-    state: Arc<RwLock<State>>,
-) -> Result<HyperResponse<Body>, MockError> {
-    let state_b = state.clone();
-    let mut state = state_b.write().unwrap();
-    let mut matching: Vec<&mut Mock> = vec![];
-
-    for mock in state.mocks.iter_mut() {
-        if mock.matches(&request) {
-            matching.push(mock);
-        }
-    }
-    let mock = matching.first_mut();
-
-    if let Some(mock) = mock {
-        mock.inner.num_called += 1;
-        let response = HyperResponse::new(Body::from(mock.inner.response.body.clone()));
-        Ok(response)
-    } else {
-        panic!("No matching mock found");
-    }
 }
 
 impl Server {
@@ -179,5 +76,29 @@ impl Server {
 
     pub fn url(&self) -> String {
         format!("http://{}", self.address.to_string())
+    }
+}
+
+async fn handle_request(
+    request: Request<Body>,
+    state: Arc<RwLock<State>>,
+) -> Result<HyperResponse<Body>, MockError> {
+    let state_b = state.clone();
+    let mut state = state_b.write().unwrap();
+    let mut matching: Vec<&mut Mock> = vec![];
+
+    for mock in state.mocks.iter_mut() {
+        if mock.matches(&request) {
+            matching.push(mock);
+        }
+    }
+    let mock = matching.first_mut();
+
+    if let Some(mock) = mock {
+        mock.inner.num_called += 1;
+        let response = HyperResponse::new(Body::from(mock.inner.response.body.clone()));
+        Ok(response)
+    } else {
+        panic!("No matching mock found");
     }
 }
