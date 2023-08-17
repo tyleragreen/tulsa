@@ -1,4 +1,4 @@
-use super::Mock;
+use super::mock::Mock;
 
 pub struct State {
     pub mocks: Vec<Mock>,

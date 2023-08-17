@@ -3,7 +3,7 @@ use hyper::StatusCode;
 use hyper::{Body, Request};
 use rand;
 
-use super::State;
+use super::state::State;
 
 #[derive(Clone)]
 pub struct Response {
