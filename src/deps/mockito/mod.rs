@@ -10,21 +10,11 @@ use std::sync::{Arc, RwLock};
 
 mod error;
 mod mock;
+mod state;
 
 use error::MockError;
 use mock::Mock;
-
-pub struct State {
-    mocks: Vec<Mock>,
-}
-
-impl State {
-    fn new() -> Self {
-        State {
-            mocks: vec![],
-        }
-    }
-}
+use state::State;
 
 pub struct Server {
     address: SocketAddr,
