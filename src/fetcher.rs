@@ -42,10 +42,18 @@ async fn fetch(feed: &Feed) -> usize {
         .headers(headers)
         .send()
         .await
-        .expect("fetch failed!");
-    let bytes = response.bytes().await.unwrap();
+        .map_err(|e| {
+            eprintln!("Error fetching {}: {}", feed.name, e);
+            e
+        }).unwrap();
 
-    let b = FeedMessage::decode(bytes).unwrap();
+    let bytes = response.bytes().await
+        .map_err(|e| eprintln!("Error reading {}: {}", feed.name, e))
+        .unwrap();
+
+    let b = FeedMessage::decode(bytes)
+        .map_err(|e| eprintln!("Error decoding {}: {}", feed.name, e))
+        .unwrap();
 
     let mut num_trip_updates: usize = 0;
     for e in b.entity {
@@ -80,15 +88,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetcher() {
-        let path = "fixtures/gtfs-07132023-123501";
         let mut buffer: Vec<u8> = Vec::new();
-        let mut file = fs::File::open(path).expect("Failed to open the file");
+        let mut file = fs::File::open("fixtures/gtfs-07132023-123501")
+            .map_err(|e| eprintln!("Failed to open the file: {}", e))
+            .unwrap();
         file.read_to_end(&mut buffer)
             .expect("Failed to read the file");
 
         let mut server = mockito::Server::new();
-        let host = server.host_with_port();
-        server
+        let mock = server
             .mock("GET", "/gtfs")
             .with_status(200)
             .with_body(buffer)
@@ -98,12 +106,13 @@ mod tests {
             id: 1,
             name: "Test".to_string(),
             frequency: 5,
-            url: format!("http://{}{}", host, "/gtfs"),
+            url: format!("{}/gtfs", server.url()),
             headers: HashMap::new(),
         };
 
         let num_found = fetch(&feed).await;
 
+        mock.assert();
         assert_eq!(num_found, 243);
     }
 }

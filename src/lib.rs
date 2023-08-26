@@ -8,7 +8,7 @@ pub mod scheduler;
 // implementations will definitely be similar to the original since I am not
 // yet fluent in Rust.
 pub mod deps {
-    // mime = "0.3.17" -> https://docs.rs/mime/latest/mime/
+    // mime = "0.3.17" -> https://docs.rs/mime/0.3.17/mime/
     pub mod mime;
 
     // prost-build = "0.11" -> https://docs.rs/prost-build/0.11.0/prost_build/

@@ -1,4 +1,5 @@
-use std::sync::mpsc;
+use std::net::SocketAddr;
+use std::sync::{Arc, mpsc, Mutex};
 use tokio::runtime::Builder;
 
 use gtfs_realtime_rust::api;
@@ -8,11 +9,13 @@ fn main() {
     let (sender, receiver) = mpsc::channel();
     scheduler::init(receiver);
 
-    let address: &str = "0.0.0.0:3000";
+    let address = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("Starting server on {}.", address);
 
-    // We use a runtime::Builder to specify the number of threads,
-    // otherwise we could just use #[tokio:main] to launch a runtime automatically.
+    // We use a runtime::Builder to specify the number of threads and
+    // their name.
+    // If we didn't want these customizations, we could just use #[tokio:main]
+    // to launch a runtime automatically.
     let runtime = Builder::new_multi_thread()
         .enable_io()
         .worker_threads(1)
@@ -21,8 +24,8 @@ fn main() {
         .unwrap();
 
     runtime.block_on(async {
-        axum::Server::bind(&address.parse().unwrap())
-            .serve(api::app(sender).into_make_service())
+        axum::Server::bind(&address)
+            .serve(api::app(Arc::new(Mutex::new(sender))).into_make_service())
             .await
             .unwrap();
     });

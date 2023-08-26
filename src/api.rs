@@ -7,23 +7,46 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, RwLock};
-use std::{collections::HashMap, sync::mpsc::Sender};
+use std::{collections::HashMap, sync::mpsc::{Sender, SendError}};
 
 use crate::fetcher::{recurring_fetch, Feed};
 use crate::model::AsyncTask;
+
+struct MockSender {
+    tasks: Arc<Mutex<Vec<AsyncTask>>>,
+}
+
+pub trait TaskSender {
+    fn send(&self, task: AsyncTask) -> Result<(), SendError<AsyncTask>>;
+}
+
+impl TaskSender for Sender<AsyncTask> {
+    fn send(&self, task: AsyncTask) -> Result<(), SendError<AsyncTask>> {
+        self.send(task)
+    }
+}
+
+impl TaskSender for MockSender {
+    fn send(&self, task: AsyncTask) -> Result<(), SendError<AsyncTask>> {
+        self.tasks.lock().unwrap().push(task);
+        Ok(())
+    }
+}
 
 #[derive(Clone)]
 struct AppState {
     feed_id: Arc<RwLock<usize>>,
     db: Arc<RwLock<HashMap<usize, Feed>>>,
-    sender: Arc<Mutex<Sender<AsyncTask>>>,
+    sender: Arc<Mutex<dyn TaskSender + Send + 'static>>,
 }
 
-pub fn app(sender: Sender<AsyncTask>) -> Router {
+pub fn app<S>(sender: Arc<Mutex<S>>) -> Router
+where S: TaskSender + Send + 'static
+{
     let state = AppState {
         feed_id: Arc::new(RwLock::new(1)),
         db: Arc::new(RwLock::new(HashMap::new())),
-        sender: Arc::new(Mutex::new(sender)),
+        sender,
     };
     Router::new()
         .route("/", get(status_handler))
@@ -174,8 +197,19 @@ mod api_tests {
         body::Body,
         http::{self, Request, StatusCode},
     };
-    use std::sync::mpsc;
     use tower::ServiceExt; // for `oneshot`
+
+    impl MockSender {
+        fn new() -> Self {
+            MockSender {
+                tasks: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn count(&self) -> usize {
+            self.tasks.lock().unwrap().iter().count()
+        }
+    }
 
     impl From<CreateFeed> for Body {
         fn from(feed: CreateFeed) -> Self {
@@ -185,15 +219,14 @@ mod api_tests {
 
     #[tokio::test]
     async fn status() {
-        // there should be a way to make this a mock channel instead. I struggled with the types
-        // here but I may look into this in the future.
-        let (sender, _) = mpsc::channel();
-        let response = app(sender)
+        let sender = Arc::new(Mutex::new(MockSender::new()));
+        let response = app(sender.clone())
             .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
             .await
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(sender.lock().unwrap().count(), 0);
 
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         assert_eq!(&body[..], b"{\"status\":\"OK\"}");
@@ -201,7 +234,7 @@ mod api_tests {
 
     #[tokio::test]
     async fn invalid() {
-        let (sender, _) = mpsc::channel();
+        let sender = Arc::new(Mutex::new(MockSender::new()));
         let response = app(sender.clone())
             .oneshot(
                 Request::builder()
@@ -217,6 +250,7 @@ mod api_tests {
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         assert_eq!(body.len(), 0);
 
+        let sender = Arc::new(Mutex::new(MockSender::new()));
         let response = app(sender.clone())
             .oneshot(
                 Request::builder()
@@ -235,7 +269,6 @@ mod api_tests {
 
     #[tokio::test]
     async fn invalid_put() {
-        let (sender, _) = mpsc::channel();
         let headers = HashMap::from([("auth".to_string(), "key".to_string())]);
         let input = CreateFeed {
             name: "Name".to_string(),
@@ -243,6 +276,7 @@ mod api_tests {
             frequency: 10,
             headers,
         };
+        let sender = Arc::new(Mutex::new(MockSender::new()));
         let response = app(sender.clone())
             .oneshot(
                 Request::builder()
@@ -257,6 +291,7 @@ mod api_tests {
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
+        let sender = Arc::new(Mutex::new(MockSender::new()));
         let response = app(sender.clone())
             .oneshot(
                 Request::builder()
@@ -281,8 +316,9 @@ mod api_tests {
             frequency: 10,
             headers,
         };
-        let (sender, _) = mpsc::channel();
-        let response = app(sender)
+        let sender = Arc::new(Mutex::new(MockSender::new()));
+        assert_eq!(sender.lock().unwrap().count(), 0);
+        let response = app(sender.clone())
             .oneshot(
                 Request::builder()
                     .method(http::Method::POST)
@@ -295,6 +331,7 @@ mod api_tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::CREATED);
+        assert_eq!(sender.lock().unwrap().count(), 1);
 
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         let f: Feed = serde_json::from_slice(&body).unwrap();
@@ -322,10 +359,10 @@ mod api_tests {
             headers: HashMap::new(),
         };
 
-        let (sender, _) = mpsc::channel();
+        let sender = Arc::new(Mutex::new(MockSender::new()));
         tokio::spawn(async move {
             axum::Server::bind(&addr.parse().unwrap())
-                .serve(app(sender).into_make_service())
+                .serve(app(sender.clone()).into_make_service())
                 .await
                 .unwrap();
         });

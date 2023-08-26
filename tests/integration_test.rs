@@ -8,6 +8,8 @@ mod tests {
     use std::thread;
     use std::time::Duration;
     use tokio::runtime::Builder;
+    use std::sync::Arc;
+    use std::sync::Mutex;
 
     #[test]
     fn integration() {
@@ -20,7 +22,7 @@ mod tests {
             let address: &str = "0.0.0.0:3000";
             runtime.block_on(async {
                 axum::Server::bind(&address.parse().unwrap())
-                    .serve(api::app(sender).into_make_service())
+                    .serve(api::app(Arc::new(Mutex::new(sender))).into_make_service())
                     .await
                     .unwrap();
             });
