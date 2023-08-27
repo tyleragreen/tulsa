@@ -77,13 +77,6 @@ struct RunnerData {
     stopping: bool,
 }
 
-async fn wait(freq: u64) {
-    let interval_duration = Duration::from_secs(freq);
-    let mut interval: Interval = tokio::time::interval(interval_duration);
-
-    interval.tick().await;
-}
-
 impl AsyncTaskRunner {
     fn new(id: usize, frequency: u64) -> Self {
         let thread_handle = None;
@@ -109,6 +102,8 @@ impl AsyncTaskRunner {
                 .build()
                 .unwrap()
                 .block_on(async {
+                    let interval_duration = Duration::from_secs(freq);
+                    let mut interval: Interval = tokio::time::interval(interval_duration);
                     loop {
                         {
                             let runner_data = local_runner_data.lock().unwrap();
@@ -116,7 +111,8 @@ impl AsyncTaskRunner {
                                 break;
                             }
                         }
-                        wait(freq).await;
+
+                        interval.tick().await;
                         func.as_mut().await;
                     }
                 });
