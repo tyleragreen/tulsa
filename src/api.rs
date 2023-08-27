@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, RwLock};
 use std::{collections::HashMap, sync::mpsc::{Sender, SendError}};
 
-use crate::fetcher::{recurring_fetch, Feed};
+use crate::fetcher::{fetch, Feed};
 use crate::model::AsyncTask;
 
 struct MockSender {
@@ -94,14 +94,18 @@ async fn post_handler(
     state.db.write().unwrap().insert(id, feed.clone());
     *(state.feed_id.write().unwrap()) += 1;
 
-    let action = AsyncTask::new(id, recurring_fetch(feed.clone()));
+    let feed_clone = feed.clone();
+    let action = AsyncTask::new(id, feed.frequency, async move {
+        fetch(&feed).await;
+        ()
+    });
     let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
         println!("{}", e);
     }
 
-    (StatusCode::CREATED, Json(feed))
+    (StatusCode::CREATED, Json(feed_clone))
 }
 
 async fn get_handler(path: Path<String>, state: State<AppState>) -> impl IntoResponse {
@@ -147,12 +151,12 @@ async fn put_handler(
     };
 
     db.insert(id, feed.clone());
-    let action = AsyncTask::update(id, recurring_fetch(feed.clone()));
-    let result = state.sender.lock().unwrap().send(action);
+    //let action = AsyncTask::update(id, recurring_fetch(feed.clone()));
+    //let result = state.sender.lock().unwrap().send(action);
 
-    if let Err(e) = result {
-        println!("{}", e);
-    }
+    //if let Err(e) = result {
+    //    println!("{}", e);
+    //}
 
     Ok(Json(feed))
 }

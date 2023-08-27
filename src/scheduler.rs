@@ -2,9 +2,11 @@ use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::thread;
 use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 use std::future::Future;
 use tokio::runtime::Builder;
 use tokio::task::JoinHandle;
+use tokio::time::{Duration, Interval};
 
 use crate::model::{AsyncTask, Operation};
 
@@ -64,8 +66,77 @@ impl AsyncScheduler {
     }
 }
 
+struct AsyncTaskRunner {
+    id: usize,
+    frequency: u64,
+    thread_handle: Option<thread::JoinHandle<()>>,
+    runner_data: Arc<Mutex<RunnerData>>,
+}
+
+struct RunnerData {
+    stopping: bool,
+}
+
+async fn wait(freq: u64) {
+    let interval_duration = Duration::from_secs(freq);
+    let mut interval: Interval = tokio::time::interval(interval_duration);
+
+    interval.tick().await;
+}
+
+impl AsyncTaskRunner {
+    fn new(id: usize, frequency: u64) -> Self {
+        let thread_handle = None;
+        let runner_data = Arc::new(Mutex::new(RunnerData { stopping: false }));
+        Self {
+            id,
+            frequency,
+            thread_handle,
+            runner_data,
+        }
+    }
+
+    fn start(&mut self, mut func: Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>>) {
+        println!("Starting {}", self.id);
+        let freq = self.frequency.clone();
+        let runner_data = self.runner_data.clone();
+        let builder = thread::Builder::new().name("task".to_string());
+        let handle = builder.spawn(move || {
+            let local_runner_data = runner_data.clone();
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(async {
+                    loop {
+                        {
+                            let runner_data = local_runner_data.lock().unwrap();
+                            if runner_data.stopping {
+                                break;
+                            }
+                        }
+                        wait(freq).await;
+                        func.as_mut().await;
+                    }
+                });
+        });
+
+        self.thread_handle = Some(handle.unwrap());
+    }
+
+    fn stop(&mut self) {
+        println!("Stopping {}", self.id);
+        let mut runner_data = self.runner_data.lock().unwrap();
+        runner_data.stopping = true;
+        if let Some(handle) = self.thread_handle.take() {
+            handle.join().unwrap();
+        }
+    }
+}
+
 struct ThreadScheduler {
-    tasks: HashMap<usize, thread::JoinHandle<Pin<Box<dyn Future<Output = ()> + Send>>>>,
+    tasks: Arc<Mutex<Vec<AsyncTaskRunner>>>,
 }
 
 impl ThreadScheduler {
@@ -73,43 +144,40 @@ impl ThreadScheduler {
         println!("ThreadScheduler initialized.");
 
         loop {
-            let async_task = receiver.recv().unwrap();
-            self.handle(async_task);
+            let task = receiver.recv().unwrap();
+            self.handle(task);
         }
     }
 
-    fn handle(&mut self, async_task: AsyncTask) {
-        match async_task.op {
+    fn handle(&mut self, task: AsyncTask) {
+        match task.op {
             Operation::Create => {
-                let future = thread::spawn(move || {
-                    loop {
-                        async_task.func;
-                        thread::sleep(std::time::Duration::from_secs(2));
-                    }
-                });
-                self.tasks.insert(async_task.id, future);
+                let mut runner = AsyncTaskRunner::new(task.id, task.frequency);
+                runner.start(task.func);
+
+                self.tasks.lock().unwrap().push(runner);
             }
             Operation::Update => {
-                let task = &self.tasks[&async_task.id];
-                //task.abort_handle().abort();
-                self.tasks.remove(&async_task.id);
-                println!("Stopped {}", async_task.id);
-
-                let future = thread::spawn(move || async_task.func);
-                self.tasks.insert(async_task.id, future);
             }
             Operation::Delete => {
-                //let task = &self.tasks[&async_task.id];
-                //task.abort_handle().abort();
-                self.tasks.remove(&async_task.id);
-                println!("Stopped {}", async_task.id);
+                let runner_idx = self.tasks
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .position(|runner| runner.id == task.id);
+
+                if let Some(idx) = runner_idx {
+                    let mut runners = self.tasks.lock().unwrap();
+                    runners[idx].stop();
+                    runners.remove(idx);
+                }
             }
         }
     }
 
     fn new() -> Self {
         ThreadScheduler {
-            tasks: HashMap::new(),
+            tasks: Arc::new(Mutex::new(Vec::<AsyncTaskRunner>::new())),
         }
     }
 }

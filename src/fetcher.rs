@@ -31,7 +31,7 @@ impl Feed {
     }
 }
 
-async fn fetch(feed: &Feed) -> usize {
+pub async fn fetch(feed: &Feed) -> usize {
     println!("Fetching {}", feed.name);
 
     let client = Client::new();
