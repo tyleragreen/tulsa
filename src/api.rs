@@ -94,10 +94,10 @@ async fn post_handler(
     state.db.write().unwrap().insert(id, feed.clone());
     *(state.feed_id.write().unwrap()) += 1;
 
-    let feed_clone = feed.clone();
     //let action = AsyncTask::new(id, recurring_fetch(feed.clone()));
+    let feed_clone = feed.clone();
     let action = Task::new(id, feed.frequency, move || {
-        fetch_sync(&feed);
+        fetch_sync(&feed_clone);
     });
     let result = state.sender.lock().unwrap().send(action);
 
@@ -105,7 +105,7 @@ async fn post_handler(
         println!("{}", e);
     }
 
-    (StatusCode::CREATED, Json(feed_clone))
+    (StatusCode::CREATED, Json(feed))
 }
 
 async fn get_handler(path: Path<String>, state: State<AppState>) -> impl IntoResponse {
