@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, RwLock};
 use std::{collections::HashMap, sync::mpsc::{Sender, SendError}};
 
-use crate::fetcher::{fetch, Feed};
+use crate::fetcher::{fetch_sync, fetch, Feed};
 use crate::model::{Task, AsyncTask};
 
 struct MockSender {
@@ -99,8 +99,9 @@ async fn post_handler(
     //    fetch(&feed).await;
     //    ()
     //});
-    let action = Task::new(id, feed.frequency, || {
+    let action = Task::new(id, feed.frequency, move || {
         println!("fetching");
+        fetch_sync(&feed);
     });
     let result = state.sender.lock().unwrap().send(action);
 

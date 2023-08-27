@@ -1,6 +1,8 @@
 use crate::fetcher::transit::FeedMessage;
 use prost::Message;
+use prost::bytes::Bytes;
 use reqwest::Client;
+use ureq;
 use tokio::time::{Duration, Interval};
 
 mod transit {
@@ -50,6 +52,37 @@ pub async fn fetch(feed: &Feed) -> usize {
     let bytes = response.bytes().await
         .map_err(|e| eprintln!("Error reading {}: {}", feed.name, e))
         .unwrap();
+
+    let b = FeedMessage::decode(bytes)
+        .map_err(|e| eprintln!("Error decoding {}: {}", feed.name, e))
+        .unwrap();
+
+    let mut num_trip_updates: usize = 0;
+    for e in b.entity {
+        if e.trip_update.is_some() {
+            num_trip_updates += 1;
+        }
+    }
+    println!("{}: {} trip updates", feed.name, num_trip_updates);
+
+    num_trip_updates
+}
+
+pub fn fetch_sync(feed: &Feed) -> usize {
+    println!("Fetching {}", feed.name);
+
+    let response = ureq::get(&feed.url)
+        .set("x-api-key", "key")
+        .call()
+        .map_err(|e| {
+            eprintln!("Error fetching {}: {}", feed.name, e);
+            e
+        }).unwrap();
+
+    let mut vec_bytes = Vec::new();
+    response.into_reader().read_to_end(&mut vec_bytes).unwrap();
+
+    let bytes: Bytes = vec_bytes.into();
 
     let b = FeedMessage::decode(bytes)
         .map_err(|e| eprintln!("Error decoding {}: {}", feed.name, e))
