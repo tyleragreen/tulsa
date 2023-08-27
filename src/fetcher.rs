@@ -71,8 +71,12 @@ pub async fn fetch(feed: &Feed) -> usize {
 pub fn fetch_sync(feed: &Feed) -> usize {
     println!("Fetching {}", feed.name);
 
-    let response = ureq::get(&feed.url)
-        .set("x-api-key", "key")
+    let mut request = ureq::get(&feed.url);
+    for (key, value) in feed.headers.iter() {
+        request = request.set(key, value);
+    }
+
+    let response = request
         .call()
         .map_err(|e| {
             eprintln!("Error fetching {}: {}", feed.name, e);
@@ -81,7 +85,6 @@ pub fn fetch_sync(feed: &Feed) -> usize {
 
     let mut vec_bytes = Vec::new();
     response.into_reader().read_to_end(&mut vec_bytes).unwrap();
-
     let bytes: Bytes = vec_bytes.into();
 
     let b = FeedMessage::decode(bytes)
