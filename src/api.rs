@@ -10,24 +10,24 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::{collections::HashMap, sync::mpsc::{Sender, SendError}};
 
 use crate::fetcher::{fetch, Feed};
-use crate::model::AsyncTask;
+use crate::model::{Task, AsyncTask};
 
 struct MockSender {
-    tasks: Arc<Mutex<Vec<AsyncTask>>>,
+    tasks: Arc<Mutex<Vec<Task>>>,
 }
 
 pub trait TaskSender {
-    fn send(&self, task: AsyncTask) -> Result<(), SendError<AsyncTask>>;
+    fn send(&self, task: Task) -> Result<(), SendError<Task>>;
 }
 
-impl TaskSender for Sender<AsyncTask> {
-    fn send(&self, task: AsyncTask) -> Result<(), SendError<AsyncTask>> {
+impl TaskSender for Sender<Task> {
+    fn send(&self, task: Task) -> Result<(), SendError<Task>> {
         self.send(task)
     }
 }
 
 impl TaskSender for MockSender {
-    fn send(&self, task: AsyncTask) -> Result<(), SendError<AsyncTask>> {
+    fn send(&self, task: Task) -> Result<(), SendError<Task>> {
         self.tasks.lock().unwrap().push(task);
         Ok(())
     }
@@ -95,9 +95,12 @@ async fn post_handler(
     *(state.feed_id.write().unwrap()) += 1;
 
     let feed_clone = feed.clone();
-    let action = AsyncTask::new(id, feed.frequency, async move {
-        fetch(&feed).await;
-        ()
+    //let action = AsyncTask::new(id, feed.frequency, async move {
+    //    fetch(&feed).await;
+    //    ()
+    //});
+    let action = Task::new(id, feed.frequency, || {
+        println!("fetching");
     });
     let result = state.sender.lock().unwrap().send(action);
 
@@ -175,7 +178,7 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
     }
 
     db.remove(&id);
-    let action = AsyncTask::stop(id);
+    let action = Task::stop(id);
     let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
