@@ -10,14 +10,14 @@ pub enum Operation {
 
 pub struct AsyncTask {
     pub id: usize,
-    pub func: Pin<Box<dyn Future<Output = ()> + Send + Sync>>,
+    pub func: Pin<Box<dyn Future<Output = ()> + Send>>,
     pub op: Operation,
 }
 
 impl AsyncTask {
     pub fn new<F>(id: usize, func: F) -> Self
     where
-        F: Future<Output = ()> + Send + Sync + 'static,
+        F: Future<Output = ()> + Send + 'static,
     {
         Self {
             id,
@@ -28,7 +28,7 @@ impl AsyncTask {
 
     pub fn update<F>(id: usize, func: F) -> Self
     where
-        F: Future<Output = ()> + Send + Sync + 'static,
+        F: Future<Output = ()> + Send + 'static,
     {
         Self {
             id,
