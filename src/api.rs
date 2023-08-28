@@ -12,22 +12,12 @@ use std::{collections::HashMap, sync::mpsc::{Sender, SendError}};
 use crate::fetcher::{fetch_sync, Feed, recurring_fetch};
 use crate::model::{SyncTask, AsyncTask};
 
-pub trait AsyncTaskSender {
-    fn send(&self, task: AsyncTask) -> Result<(), SendError<AsyncTask>>;
+pub trait TaskSender<T> {
+    fn send(&self, task: T) -> Result<(), SendError<T>>;
 }
 
-impl AsyncTaskSender for Sender<AsyncTask> {
-    fn send(&self, task: AsyncTask) -> Result<(), SendError<AsyncTask>> {
-        self.send(task)
-    }
-}
-
-pub trait TaskSender {
-    fn send(&self, task: SyncTask) -> Result<(), SendError<SyncTask>>;
-}
-
-impl TaskSender for Sender<SyncTask> {
-    fn send(&self, task: SyncTask) -> Result<(), SendError<SyncTask>> {
+impl<T> TaskSender<T> for Sender<T> {
+    fn send(&self, task: T) -> Result<(), SendError<T>> {
         self.send(task)
     }
 }
@@ -36,11 +26,11 @@ impl TaskSender for Sender<SyncTask> {
 struct AppState {
     feed_id: Arc<RwLock<usize>>,
     db: Arc<RwLock<HashMap<usize, Feed>>>,
-    sender: Arc<Mutex<dyn TaskSender + Send + 'static>>,
+    sender: Arc<Mutex<dyn TaskSender<SyncTask> + Send + 'static>>,
 }
 
 pub fn app<S>(sender: Arc<Mutex<S>>) -> Router
-where S: TaskSender + Send + 'static
+where S: TaskSender<SyncTask> + Send + 'static
 {
     let state = AppState {
         feed_id: Arc::new(RwLock::new(1)),
@@ -206,18 +196,18 @@ mod api_tests {
     };
     use tower::ServiceExt; // for `oneshot`
 
-    struct MockSender {
-        tasks: Arc<Mutex<Vec<SyncTask>>>,
+    struct MockSender<T> {
+        tasks: Arc<Mutex<Vec<T>>>,
     }
 
-    impl TaskSender for MockSender {
-        fn send(&self, task: SyncTask) -> Result<(), SendError<SyncTask>> {
+    impl<T> TaskSender<T> for MockSender<T> {
+        fn send(&self, task: T) -> Result<(), SendError<T>> {
             self.tasks.lock().unwrap().push(task);
             Ok(())
         }
     }
 
-    impl MockSender {
+    impl MockSender<SyncTask> {
         fn new() -> Self {
             MockSender {
                 tasks: Arc::new(Mutex::new(Vec::new())),
