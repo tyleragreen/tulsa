@@ -8,9 +8,9 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, RwLock};
 use std::{collections::HashMap, sync::mpsc::{Sender, SendError}};
+use tulsa::model::{SyncTask, AsyncTask};
 
 use crate::fetcher::{fetch_sync, Feed, recurring_fetch};
-use crate::model::{SyncTask, AsyncTask};
 
 pub trait TaskSender<T> {
     fn send(&self, task: T) -> Result<(), SendError<T>>;

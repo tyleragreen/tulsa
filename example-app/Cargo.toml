@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+tulsa = { path = "../tulsa" }
 axum = "0.6.18"
 axum-macros = "0.3.7"
 hyper = { version = "0.14.27", features = ["client"] }

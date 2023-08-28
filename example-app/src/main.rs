@@ -1,9 +1,9 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, mpsc, Mutex};
 use tokio::runtime::Builder;
+use tulsa::scheduler;
 
 use gtfs_realtime_rust::api;
-use gtfs_realtime_rust::scheduler;
 
 fn main() {
     let (sender, receiver) = mpsc::channel();

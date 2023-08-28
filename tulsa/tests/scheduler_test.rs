@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use gtfs_realtime_rust::model::AsyncTask;
-    use gtfs_realtime_rust::scheduler;
+    use tulsa::model::AsyncTask;
+    use tulsa::scheduler;
     use std::fs::File;
     use std::fs::OpenOptions;
     use std::io::prelude::*;

@@ -18,8 +18,7 @@ impl AsyncScheduler {
 
         let num_threads = 1;
         let runtime = Builder::new_multi_thread()
-            .enable_time()
-            .enable_io()
+            .enable_all()
             .worker_threads(num_threads)
             .thread_name("scheduler-runtime")
             .build()
