@@ -14,7 +14,7 @@ mod tests {
     #[test]
     fn integration() {
         let (sender, receiver) = mpsc::channel();
-        scheduler::init_sync(receiver);
+        scheduler::init_async(receiver);
 
         thread::spawn(move || {
             let runtime = Builder::new_multi_thread().enable_io().build().unwrap();

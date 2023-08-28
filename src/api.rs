@@ -26,11 +26,11 @@ impl<T> TaskSender<T> for Sender<T> {
 struct AppState {
     feed_id: Arc<RwLock<usize>>,
     db: Arc<RwLock<HashMap<usize, Feed>>>,
-    sender: Arc<Mutex<dyn TaskSender<SyncTask> + Send + 'static>>,
+    sender: Arc<Mutex<dyn TaskSender<AsyncTask> + Send + 'static>>,
 }
 
 pub fn app<S>(sender: Arc<Mutex<S>>) -> Router
-where S: TaskSender<SyncTask> + Send + 'static
+where S: TaskSender<AsyncTask> + Send + 'static
 {
     let state = AppState {
         feed_id: Arc::new(RwLock::new(1)),
@@ -83,11 +83,11 @@ async fn post_handler(
     state.db.write().unwrap().insert(id, feed.clone());
     *(state.feed_id.write().unwrap()) += 1;
 
-    //let action = AsyncTask::new(id, recurring_fetch(feed.clone()));
     let feed_clone = feed.clone();
-    let action = SyncTask::new(id, feed.frequency, move || {
-        fetch_sync(&feed_clone);
-    });
+    let action = AsyncTask::new(id, recurring_fetch(feed_clone));
+    //let action = SyncTask::new(id, feed.frequency, move || {
+    //    fetch_sync(&feed_clone);
+    //});
     let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
@@ -140,11 +140,12 @@ async fn put_handler(
     };
 
     db.insert(id, feed.clone());
-    //let action = AsyncTask::update(id, recurring_fetch(feed.clone()));
+
     let feed_clone = feed.clone();
-    let action = SyncTask::update(id, feed.frequency, move || {
-        fetch_sync(&feed_clone);
-    });
+    let action = AsyncTask::update(id, recurring_fetch(feed_clone));
+    //let action = SyncTask::update(id, feed.frequency, move || {
+    //    fetch_sync(&feed_clone);
+    //});
     let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
@@ -168,7 +169,7 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
     }
 
     db.remove(&id);
-    let action = SyncTask::stop(id);
+    let action = AsyncTask::stop(id);
     let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
@@ -207,7 +208,7 @@ mod api_tests {
         }
     }
 
-    impl MockSender<SyncTask> {
+    impl MockSender<AsyncTask> {
         fn new() -> Self {
             MockSender {
                 tasks: Arc::new(Mutex::new(Vec::new())),

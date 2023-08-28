@@ -7,7 +7,7 @@ use gtfs_realtime_rust::scheduler;
 
 fn main() {
     let (sender, receiver) = mpsc::channel();
-    scheduler::init_sync(receiver);
+    scheduler::init_async(receiver);
 
     let address = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("Starting server on {}.", address);
