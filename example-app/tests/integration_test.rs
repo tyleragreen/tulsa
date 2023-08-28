@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use gtfs_realtime_rust::api;
-    use gtfs_realtime_rust::scheduler;
+    use tulsa::scheduler;
     use reqwest::blocking::Client;
     use serde_json::json;
     use std::sync::mpsc;
@@ -10,6 +9,8 @@ mod tests {
     use tokio::runtime::Builder;
     use std::sync::Arc;
     use std::sync::Mutex;
+
+    use gtfs_realtime_rust::api;
 
     #[test]
     fn integration() {
