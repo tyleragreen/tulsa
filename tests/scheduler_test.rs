@@ -56,7 +56,7 @@ mod tests {
     #[test]
     fn scheduler() {
         let (sender, receiver) = mpsc::channel();
-        scheduler::init(receiver);
+        scheduler::init_async(receiver);
 
         static FILE_NAME: &'static str = "/tmp/rust_test_output.txt";
 
@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn scheduler_delete() {
         let (sender, receiver) = mpsc::channel();
-        scheduler::init(receiver);
+        scheduler::init_async(receiver);
 
         let task_id: usize = 2;
         static FILE_NAME: &'static str = "/tmp/gtfs_realtime_rust_2.txt";

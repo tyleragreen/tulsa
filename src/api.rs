@@ -10,26 +10,25 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::{collections::HashMap, sync::mpsc::{Sender, SendError}};
 
 use crate::fetcher::{fetch_sync, Feed, recurring_fetch};
-use crate::model::{Task, AsyncTask};
+use crate::model::{SyncTask, AsyncTask};
 
-struct MockSender {
-    tasks: Arc<Mutex<Vec<Task>>>,
+pub trait AsyncTaskSender {
+    fn send(&self, task: AsyncTask) -> Result<(), SendError<AsyncTask>>;
 }
 
-pub trait TaskSender {
-    fn send(&self, task: Task) -> Result<(), SendError<Task>>;
-}
-
-impl TaskSender for Sender<Task> {
-    fn send(&self, task: Task) -> Result<(), SendError<Task>> {
+impl AsyncTaskSender for Sender<AsyncTask> {
+    fn send(&self, task: AsyncTask) -> Result<(), SendError<AsyncTask>> {
         self.send(task)
     }
 }
 
-impl TaskSender for MockSender {
-    fn send(&self, task: Task) -> Result<(), SendError<Task>> {
-        self.tasks.lock().unwrap().push(task);
-        Ok(())
+pub trait TaskSender {
+    fn send(&self, task: SyncTask) -> Result<(), SendError<SyncTask>>;
+}
+
+impl TaskSender for Sender<SyncTask> {
+    fn send(&self, task: SyncTask) -> Result<(), SendError<SyncTask>> {
+        self.send(task)
     }
 }
 
@@ -96,7 +95,7 @@ async fn post_handler(
 
     //let action = AsyncTask::new(id, recurring_fetch(feed.clone()));
     let feed_clone = feed.clone();
-    let action = Task::new(id, feed.frequency, move || {
+    let action = SyncTask::new(id, feed.frequency, move || {
         fetch_sync(&feed_clone);
     });
     let result = state.sender.lock().unwrap().send(action);
@@ -153,7 +152,7 @@ async fn put_handler(
     db.insert(id, feed.clone());
     //let action = AsyncTask::update(id, recurring_fetch(feed.clone()));
     let feed_clone = feed.clone();
-    let action = Task::update(id, feed.frequency, move || {
+    let action = SyncTask::update(id, feed.frequency, move || {
         fetch_sync(&feed_clone);
     });
     let result = state.sender.lock().unwrap().send(action);
@@ -179,7 +178,7 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
     }
 
     db.remove(&id);
-    let action = Task::stop(id);
+    let action = SyncTask::stop(id);
     let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
@@ -206,6 +205,17 @@ mod api_tests {
         http::{self, Request, StatusCode},
     };
     use tower::ServiceExt; // for `oneshot`
+
+    struct MockSender {
+        tasks: Arc<Mutex<Vec<SyncTask>>>,
+    }
+
+    impl TaskSender for MockSender {
+        fn send(&self, task: SyncTask) -> Result<(), SendError<SyncTask>> {
+            self.tasks.lock().unwrap().push(task);
+            Ok(())
+        }
+    }
 
     impl MockSender {
         fn new() -> Self {

@@ -46,14 +46,14 @@ impl AsyncTask {
     }
 }
 
-pub struct Task {
+pub struct SyncTask {
     pub id: usize,
     pub frequency: u64,
     pub func: Pin<Box<dyn Fn() + Send + Sync>>,
     pub op: Operation,
 }
 
-impl Task {
+impl SyncTask {
     pub fn new<F>(id: usize, frequency: u64, func: F) -> Self
     where
         F: Fn() + Send + Sync + 'static,

@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use tokio::runtime::Builder;
 use tokio::task::JoinHandle;
 
-use crate::model::{Task, AsyncTask, Operation};
+use crate::model::{SyncTask, AsyncTask, Operation};
 
 struct AsyncScheduler {
     tasks: HashMap<usize, JoinHandle<()>>,
@@ -132,7 +132,7 @@ struct ThreadScheduler {
 }
 
 impl ThreadScheduler {
-    fn listen(&mut self, receiver: Receiver<Task>) {
+    fn listen(&mut self, receiver: Receiver<SyncTask>) {
         println!("ThreadScheduler initialized.");
 
         loop {
@@ -151,7 +151,7 @@ impl ThreadScheduler {
             .position(|runner| runner.id == id)
     }
 
-    fn handle(&mut self, task: Task) {
+    fn handle(&mut self, task: SyncTask) {
         match task.op {
             Operation::Create => {
                 let mut runner = TaskRunner::new(task.id, task.frequency);
@@ -186,7 +186,7 @@ impl ThreadScheduler {
     }
 }
 
-pub fn init(receiver: Receiver<AsyncTask>) {
+pub fn init_async(receiver: Receiver<AsyncTask>) {
     let mut scheduler = AsyncScheduler::new();
     let builder = thread::Builder::new().name("scheduler".to_string());
     builder
@@ -194,7 +194,7 @@ pub fn init(receiver: Receiver<AsyncTask>) {
         .expect("Failed to spawn scheduler thread.");
 }
 
-pub fn init_sync(receiver: Receiver<Task>) {
+pub fn init_sync(receiver: Receiver<SyncTask>) {
     let mut scheduler = ThreadScheduler::new();
     let builder = thread::Builder::new().name("scheduler".to_string());
     builder
