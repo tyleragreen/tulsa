@@ -92,19 +92,18 @@ impl TaskRunner {
         let freq = self.frequency.clone();
         let runner_data = self.runner_data.clone();
         let builder = thread::Builder::new().name("task".to_string());
+
         let handle = builder.spawn(move || {
-            let local_runner_data = runner_data.clone();
             let duration = std::time::Duration::from_secs(freq);
+
             loop {
                 {
-                    let runner_data = local_runner_data.lock().unwrap();
-                    if runner_data.stopping {
+                    if runner_data.lock().unwrap().stopping {
                         break;
                     }
                 }
 
                 func();
-
                 thread::sleep(duration);
             }
         });
@@ -114,10 +113,16 @@ impl TaskRunner {
 
     fn stop(&mut self) {
         println!("Stopping {}", self.id);
-        let mut runner_data = self.runner_data.lock().unwrap();
-        runner_data.stopping = true;
+        // Use a block so that the lock is released.
+        {
+            self.runner_data.lock().unwrap().stopping = true;
+        }
+
         if let Some(handle) = self.thread_handle.take() {
-            handle.join().unwrap();
+            match handle.join() {
+                Ok(_) => println!("Stopped {}", self.id),
+                Err(e) => panic!("{:?}", e),
+            }
         }
     }
 }
@@ -131,9 +136,19 @@ impl ThreadScheduler {
         println!("ThreadScheduler initialized.");
 
         loop {
-            let task = receiver.recv().unwrap();
-            self.handle(task);
+            match receiver.recv() {
+                Ok(task) => self.handle(task),
+                Err(e) => eprintln!("{}", e),
+            }
         }
+    }
+
+    fn find_index(&mut self, id: usize) -> Option<usize> {
+        self.tasks
+            .lock()
+            .unwrap()
+            .iter()
+            .position(|runner| runner.id == id)
     }
 
     fn handle(&mut self, task: Task) {
@@ -141,19 +156,21 @@ impl ThreadScheduler {
             Operation::Create => {
                 let mut runner = TaskRunner::new(task.id, task.frequency);
                 runner.start(task.func);
-
                 self.tasks.lock().unwrap().push(runner);
             }
             Operation::Update => {
+                if let Some(idx) = self.find_index(task.id) {
+                    let mut runners = self.tasks.lock().unwrap();
+                    runners[idx].stop();
+                    runners.remove(idx);
+                }
+
+                let mut runner = TaskRunner::new(task.id, task.frequency);
+                runner.start(task.func);
+                self.tasks.lock().unwrap().push(runner);
             }
             Operation::Delete => {
-                let runner_idx = self.tasks
-                    .lock()
-                    .unwrap()
-                    .iter()
-                    .position(|runner| runner.id == task.id);
-
-                if let Some(idx) = runner_idx {
+                if let Some(idx) = self.find_index(task.id) {
                     let mut runners = self.tasks.lock().unwrap();
                     runners[idx].stop();
                     runners.remove(idx);

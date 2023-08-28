@@ -152,11 +152,15 @@ async fn put_handler(
 
     db.insert(id, feed.clone());
     //let action = AsyncTask::update(id, recurring_fetch(feed.clone()));
-    //let result = state.sender.lock().unwrap().send(action);
+    let feed_clone = feed.clone();
+    let action = Task::update(id, feed.frequency, move || {
+        fetch_sync(&feed_clone);
+    });
+    let result = state.sender.lock().unwrap().send(action);
 
-    //if let Err(e) = result {
-    //    println!("{}", e);
-    //}
+    if let Err(e) = result {
+        println!("{}", e);
+    }
 
     Ok(Json(feed))
 }

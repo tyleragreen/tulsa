@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use reqwest::header::{HeaderMap, HeaderName};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Feed {
     pub id: usize,
     pub name: String,
