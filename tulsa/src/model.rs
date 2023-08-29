@@ -1,5 +1,6 @@
 use std::future::Future;
 use std::pin::Pin;
+use std::time::Duration;
 
 #[derive(Clone)]
 pub enum Operation {
@@ -48,13 +49,13 @@ impl AsyncTask {
 
 pub struct SyncTask {
     pub id: usize,
-    pub frequency: u64,
+    pub frequency: Duration,
     pub func: Pin<Box<dyn Fn() + Send + Sync>>,
     pub op: Operation,
 }
 
 impl SyncTask {
-    pub fn new<F>(id: usize, frequency: u64, func: F) -> Self
+    pub fn new<F>(id: usize, frequency: Duration, func: F) -> Self
     where
         F: Fn() + Send + Sync + 'static,
     {
@@ -66,7 +67,7 @@ impl SyncTask {
         }
     }
 
-    pub fn update<F>(id: usize, frequency: u64, func: F) -> Self
+    pub fn update<F>(id: usize, frequency: Duration, func: F) -> Self
     where
         F: Fn() + Send + Sync + 'static,
     {
@@ -81,7 +82,7 @@ impl SyncTask {
     pub fn stop(id: usize) -> Self {
         Self {
             id,
-            frequency: 0,
+            frequency: Duration::from_millis(0),
             func: Box::pin(|| {}),
             op: Operation::Delete,
         }

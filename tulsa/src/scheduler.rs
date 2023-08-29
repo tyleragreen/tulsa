@@ -3,6 +3,7 @@ use std::sync::mpsc::Receiver;
 use std::thread;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tokio::runtime::Builder;
 use tokio::task::JoinHandle;
 
@@ -65,7 +66,7 @@ impl AsyncScheduler {
 
 struct TaskRunner {
     id: usize,
-    frequency: u64,
+    frequency: Duration,
     thread_handle: Option<thread::JoinHandle<()>>,
     runner_data: Arc<Mutex<RunnerData>>,
 }
@@ -75,7 +76,7 @@ struct RunnerData {
 }
 
 impl TaskRunner {
-    fn new(id: usize, frequency: u64) -> Self {
+    fn new(id: usize, frequency: Duration) -> Self {
         let thread_handle = None;
         let runner_data = Arc::new(Mutex::new(RunnerData { stopping: false }));
         Self {
@@ -88,13 +89,11 @@ impl TaskRunner {
 
     fn start(&mut self, func: Pin<Box<dyn Fn() + Send + Sync + 'static>>) {
         println!("Starting {}", self.id);
-        let freq = self.frequency.clone();
+        let frequency = self.frequency.clone();
         let runner_data = self.runner_data.clone();
         let builder = thread::Builder::new().name("task".to_string());
 
         let handle = builder.spawn(move || {
-            let duration = std::time::Duration::from_secs(freq);
-
             loop {
                 {
                     if runner_data.lock().unwrap().stopping {
@@ -103,7 +102,7 @@ impl TaskRunner {
                 }
 
                 func();
-                thread::sleep(duration);
+                thread::sleep(frequency);
             }
         });
 
