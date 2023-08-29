@@ -126,16 +126,13 @@ mod tests {
             .append(true)
             .open(file_name)
             .unwrap();
-
         let file_mutex = Mutex::new(file);
 
-        let task = SyncTask::new(id, Duration::from_millis(millis), move || {
+        SyncTask::new(id, Duration::from_millis(millis), move || {
             let mut file = file_mutex.lock().unwrap();
             file.write_all("i".to_string().as_bytes()).unwrap();
             file.write_all(b"\n").unwrap();
-        });
-
-        task
+        })
     }
 
     #[test]
