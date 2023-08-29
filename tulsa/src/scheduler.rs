@@ -27,8 +27,10 @@ impl AsyncScheduler {
 
         runtime.block_on(async {
             loop {
-                let async_task = receiver.recv().unwrap();
-                self.handle(async_task);
+                match receiver.recv() {
+                    Ok(async_task) => self.handle(async_task),
+                    Err(e) => eprintln!("{}", e),
+                }
             }
         });
     }
