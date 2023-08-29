@@ -97,7 +97,10 @@ mod tests {
         confirm_wc(FILE_NAME, 0);
         match sender.send(task) {
             Ok(_) => assert!(true),
-            Err(_) => assert!(false),
+            Err(e) => {
+                eprintln!("{}", e);
+                assert!(false)
+            },
         }
 
         // Wait for the task to finish and then confirm the file has the correct contents
@@ -107,7 +110,10 @@ mod tests {
         let task = AsyncTask::stop(task_id);
         match sender.send(task) {
             Ok(_) => assert!(true),
-            Err(_) => assert!(false),
+            Err(e) => {
+                eprintln!("{}", e);
+                assert!(false)
+            },
         }
 
         thread::sleep(Duration::from_millis(550));
@@ -176,7 +182,10 @@ mod tests {
         confirm_wc(FILE_NAME, 0);
         match sender.send(task) {
             Ok(_) => assert!(true),
-            Err(_) => assert!(false),
+            Err(e) => {
+                eprintln!("{}", e);
+                assert!(false)
+            },
         }
 
         // Wait for the task to finish and then confirm the file has the correct contents
@@ -186,7 +195,10 @@ mod tests {
         let task = SyncTask::stop(task_id);
         match sender.send(task) {
             Ok(_) => assert!(true),
-            Err(_) => assert!(false),
+            Err(e) => {
+                eprintln!("{}", e);
+                assert!(false)
+            },
         }
 
         thread::sleep(Duration::from_millis(550));
