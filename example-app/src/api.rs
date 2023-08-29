@@ -8,6 +8,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, RwLock};
 use std::{collections::HashMap, sync::mpsc::{Sender, SendError}};
+use std::time::Duration;
 use tulsa::model::{SyncTask, AsyncTask};
 
 use crate::fetcher::{fetch_sync, Feed, recurring_fetch};
@@ -85,7 +86,7 @@ async fn post_handler(
 
     let feed_clone = feed.clone();
     let action = AsyncTask::new(id, recurring_fetch(feed_clone));
-    //let action = SyncTask::new(id, feed.frequency, move || {
+    //let action = SyncTask::new(id, Duration::from_secs(feed.frequency), move || {
     //    fetch_sync(&feed_clone);
     //});
     let result = state.sender.lock().unwrap().send(action);
@@ -143,7 +144,7 @@ async fn put_handler(
 
     let feed_clone = feed.clone();
     let action = AsyncTask::update(id, recurring_fetch(feed_clone));
-    //let action = SyncTask::update(id, feed.frequency, move || {
+    //let action = SyncTask::update(id, Duration::from_secs(feed.frequency), move || {
     //    fetch_sync(&feed_clone);
     //});
     let result = state.sender.lock().unwrap().send(action);
