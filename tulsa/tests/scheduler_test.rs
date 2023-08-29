@@ -38,20 +38,19 @@ mod tests {
         file.write_all(b"").unwrap();
     }
 
-    fn create_async_task(id: usize, file_name: &'static str, millis: u64, count: i32) -> AsyncTask {
-        let task = AsyncTask::new(id, async move {
+    fn create_async_task(id: usize, file_name: &'static str, millis: u64) -> AsyncTask {
+        AsyncTask::new(id, async move {
             let duration = Duration::from_millis(millis);
             let mut interval = tokio::time::interval(duration);
             let mut file = File::create(file_name).unwrap();
 
-            for i in 0..count {
+            // Run to a larger number than we expect to reach during this test
+            for i in 0..1000 {
                 interval.tick().await;
                 file.write_all(i.to_string().as_bytes()).unwrap();
                 file.write_all(b"\n").unwrap();
             }
-        });
-
-        task
+        })
     }
 
     #[test]
@@ -64,7 +63,7 @@ mod tests {
         // Clear the file and ensure it exists
         touch(FILE_NAME);
 
-        let task = create_async_task(1, FILE_NAME, 100, 5);
+        let task = create_async_task(1, FILE_NAME, 100);
 
         // File should still be empty before the send the task to the scheduler
         confirm_wc(FILE_NAME, 0);
@@ -78,7 +77,7 @@ mod tests {
 
         // Wait for the task to finish and then confirm the file has the correct contents
         thread::sleep(Duration::from_millis(550));
-        confirm_wc(FILE_NAME, 5);
+        confirm_wc(FILE_NAME, 6);
     }
 
     #[test]
@@ -92,7 +91,7 @@ mod tests {
         // Clear the file and ensure it exists
         touch(FILE_NAME);
 
-        let task = create_async_task(task_id, FILE_NAME, 100, 10);
+        let task = create_async_task(task_id, FILE_NAME, 100);
 
         // File should still be empty before the send the task to the scheduler
         confirm_wc(FILE_NAME, 0);
