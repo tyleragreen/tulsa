@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use gtfs_realtime_rust::api;
-    use gtfs_realtime_rust::scheduler;
+    use tulsa::scheduler;
     use reqwest::blocking::Client;
     use serde_json::json;
     use std::sync::mpsc;
@@ -11,10 +10,12 @@ mod tests {
     use std::sync::Arc;
     use std::sync::Mutex;
 
+    use gtfs_realtime_rust::api;
+
     #[test]
     fn integration() {
         let (sender, receiver) = mpsc::channel();
-        scheduler::init(receiver);
+        scheduler::init_async(receiver);
 
         thread::spawn(move || {
             let runtime = Builder::new_multi_thread().enable_io().build().unwrap();

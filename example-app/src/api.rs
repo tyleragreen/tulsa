@@ -8,28 +8,18 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, RwLock};
 use std::{collections::HashMap, sync::mpsc::{Sender, SendError}};
+use std::time::Duration;
+use tulsa::model::{SyncTask, AsyncTask};
 
-use crate::fetcher::{recurring_fetch, Feed};
-use crate::model::AsyncTask;
+use crate::fetcher::{fetch_sync, Feed, recurring_fetch};
 
-struct MockSender {
-    tasks: Arc<Mutex<Vec<AsyncTask>>>,
+pub trait TaskSender<T> {
+    fn send(&self, task: T) -> Result<(), SendError<T>>;
 }
 
-pub trait TaskSender {
-    fn send(&self, task: AsyncTask) -> Result<(), SendError<AsyncTask>>;
-}
-
-impl TaskSender for Sender<AsyncTask> {
-    fn send(&self, task: AsyncTask) -> Result<(), SendError<AsyncTask>> {
+impl<T> TaskSender<T> for Sender<T> {
+    fn send(&self, task: T) -> Result<(), SendError<T>> {
         self.send(task)
-    }
-}
-
-impl TaskSender for MockSender {
-    fn send(&self, task: AsyncTask) -> Result<(), SendError<AsyncTask>> {
-        self.tasks.lock().unwrap().push(task);
-        Ok(())
     }
 }
 
@@ -37,11 +27,11 @@ impl TaskSender for MockSender {
 struct AppState {
     feed_id: Arc<RwLock<usize>>,
     db: Arc<RwLock<HashMap<usize, Feed>>>,
-    sender: Arc<Mutex<dyn TaskSender + Send + 'static>>,
+    sender: Arc<Mutex<dyn TaskSender<AsyncTask> + Send + 'static>>,
 }
 
 pub fn app<S>(sender: Arc<Mutex<S>>) -> Router
-where S: TaskSender + Send + 'static
+where S: TaskSender<AsyncTask> + Send + 'static
 {
     let state = AppState {
         feed_id: Arc::new(RwLock::new(1)),
@@ -94,7 +84,11 @@ async fn post_handler(
     state.db.write().unwrap().insert(id, feed.clone());
     *(state.feed_id.write().unwrap()) += 1;
 
-    let action = AsyncTask::new(id, recurring_fetch(feed.clone()));
+    let feed_clone = feed.clone();
+    let action = AsyncTask::new(id, recurring_fetch(feed_clone));
+    //let action = SyncTask::new(id, Duration::from_secs(feed.frequency), move || {
+    //    fetch_sync(&feed_clone);
+    //});
     let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
@@ -147,7 +141,12 @@ async fn put_handler(
     };
 
     db.insert(id, feed.clone());
-    let action = AsyncTask::update(id, recurring_fetch(feed.clone()));
+
+    let feed_clone = feed.clone();
+    let action = AsyncTask::update(id, recurring_fetch(feed_clone));
+    //let action = SyncTask::update(id, Duration::from_secs(feed.frequency), move || {
+    //    fetch_sync(&feed_clone);
+    //});
     let result = state.sender.lock().unwrap().send(action);
 
     if let Err(e) = result {
@@ -199,7 +198,18 @@ mod api_tests {
     };
     use tower::ServiceExt; // for `oneshot`
 
-    impl MockSender {
+    struct MockSender<T> {
+        tasks: Arc<Mutex<Vec<T>>>,
+    }
+
+    impl<T> TaskSender<T> for MockSender<T> {
+        fn send(&self, task: T) -> Result<(), SendError<T>> {
+            self.tasks.lock().unwrap().push(task);
+            Ok(())
+        }
+    }
+
+    impl MockSender<AsyncTask> {
         fn new() -> Self {
             MockSender {
                 tasks: Arc::new(Mutex::new(Vec::new())),

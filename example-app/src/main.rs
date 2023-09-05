@@ -1,13 +1,13 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, mpsc, Mutex};
 use tokio::runtime::Builder;
+use tulsa::scheduler;
 
 use gtfs_realtime_rust::api;
-use gtfs_realtime_rust::scheduler;
 
 fn main() {
     let (sender, receiver) = mpsc::channel();
-    scheduler::init(receiver);
+    scheduler::init_async(receiver);
 
     let address = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("Starting server on {}.", address);
