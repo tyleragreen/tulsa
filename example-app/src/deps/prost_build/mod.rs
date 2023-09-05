@@ -1,5 +1,6 @@
 use std::process::Command;
 use std::io::{Error, ErrorKind, Result};
+use prost::bytes::Bytes;
 use std::fs;
 use std::env;
 use std::path::PathBuf;
