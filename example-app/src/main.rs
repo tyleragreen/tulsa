@@ -1,5 +1,5 @@
 use std::net::SocketAddr;
-use std::sync::{Arc, mpsc, Mutex};
+use std::sync::{mpsc, Arc, Mutex};
 use tokio::runtime::Builder;
 use tulsa::scheduler;
 

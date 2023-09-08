@@ -7,11 +7,14 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, RwLock};
-use std::{collections::HashMap, sync::mpsc::{Sender, SendError}};
 use std::time::Duration;
-use tulsa::model::{SyncTask, AsyncTask};
+use std::{
+    collections::HashMap,
+    sync::mpsc::{SendError, Sender},
+};
+use tulsa::model::{AsyncTask, SyncTask};
 
-use crate::fetcher::{fetch_sync, Feed, recurring_fetch};
+use crate::fetcher::{fetch_sync, recurring_fetch, Feed};
 
 pub trait TaskSender<T> {
     fn send(&self, task: T) -> Result<(), SendError<T>>;
@@ -31,7 +34,8 @@ struct AppState {
 }
 
 pub fn app<S>(sender: Arc<Mutex<S>>) -> Router
-where S: TaskSender<AsyncTask> + Send + 'static
+where
+    S: TaskSender<AsyncTask> + Send + 'static,
 {
     let state = AppState {
         feed_id: Arc::new(RwLock::new(1)),
@@ -188,8 +192,8 @@ async fn list_handler(state: State<AppState>) -> impl IntoResponse {
 
 #[cfg(test)]
 mod api_tests {
-    use crate::fetcher::Feed;
     use crate::deps::mime;
+    use crate::fetcher::Feed;
 
     use super::*;
     use axum::{

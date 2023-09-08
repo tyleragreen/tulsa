@@ -1,14 +1,14 @@
 #[cfg(test)]
 mod tests {
-    use tulsa::scheduler;
     use reqwest::blocking::Client;
     use serde_json::json;
     use std::sync::mpsc;
+    use std::sync::Arc;
+    use std::sync::Mutex;
     use std::thread;
     use std::time::Duration;
     use tokio::runtime::Builder;
-    use std::sync::Arc;
-    use std::sync::Mutex;
+    use tulsa::scheduler;
 
     use gtfs_realtime_rust::api;
 

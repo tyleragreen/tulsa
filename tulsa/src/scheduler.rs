@@ -1,13 +1,13 @@
 use std::collections::HashMap;
-use std::sync::mpsc::Receiver;
-use std::thread;
 use std::pin::Pin;
+use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 use tokio::runtime::Builder;
 use tokio::task::JoinHandle;
 
-use crate::model::{SyncTask, AsyncTask, Operation};
+use crate::model::{AsyncTask, Operation, SyncTask};
 
 struct AsyncScheduler {
     tasks: HashMap<usize, JoinHandle<()>>,
@@ -95,17 +95,15 @@ impl TaskRunner {
         let runner_data = self.runner_data.clone();
         let builder = thread::Builder::new().name("task".to_string());
 
-        let handle = builder.spawn(move || {
-            loop {
-                {
-                    if runner_data.lock().unwrap().stopping {
-                        break;
-                    }
+        let handle = builder.spawn(move || loop {
+            {
+                if runner_data.lock().unwrap().stopping {
+                    break;
                 }
-
-                func();
-                thread::sleep(frequency);
             }
+
+            func();
+            thread::sleep(frequency);
         });
 
         self.thread_handle = Some(handle.unwrap());

@@ -1,6 +1,5 @@
 pub struct MimeType {
     source: Source,
-
     // For what we're doing, we don't technically need the Source type.
     // I'm keeping it in to see the library pattern but this would suffice
     // and mean we don't need the Source enum.
