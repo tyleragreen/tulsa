@@ -1,12 +1,12 @@
+use hyper::server::conn::Http;
+use hyper::service::service_fn;
+use hyper::{Body, Request, Response as HyperResponse};
 use std::net::SocketAddr;
+use std::sync::{Arc, RwLock};
 use std::thread;
 use tokio::net::TcpListener;
 use tokio::runtime;
 use tokio::task::spawn;
-use hyper::server::conn::Http;
-use hyper::service::service_fn;
-use hyper::{Body, Request, Response as HyperResponse};
-use std::sync::{Arc, RwLock};
 
 use super::error::MockError;
 use super::mock::Mock;
@@ -30,9 +30,7 @@ impl Server {
         let state_b = state.clone();
         thread::spawn(move || {
             runtime.block_on(async {
-                let listener = TcpListener::bind(address)
-                    .await
-                    .unwrap();
+                let listener = TcpListener::bind(address).await.unwrap();
 
                 while let Ok((stream, _)) = listener.accept().await {
                     let state_c = state_b.clone();
@@ -50,10 +48,7 @@ impl Server {
             });
         });
 
-        Server {
-            address,
-            state,
-        }
+        Server { address, state }
     }
 
     pub fn mock(&self, method: &str, path: &str) -> Mock {

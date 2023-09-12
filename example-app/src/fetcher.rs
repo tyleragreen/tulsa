@@ -121,11 +121,11 @@ pub async fn recurring_fetch(feed: Feed) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::deps::mockito;
     use std::collections::HashMap;
     use std::fs;
     use std::io::Read;
     use std::vec::Vec;
-    use crate::deps::mockito;
 
     #[tokio::test]
     async fn test_fetcher() {

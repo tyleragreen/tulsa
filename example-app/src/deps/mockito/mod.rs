@@ -1,6 +1,6 @@
 mod error;
 mod mock;
-mod state;
 mod server;
+mod state;
 
 pub use server::Server;

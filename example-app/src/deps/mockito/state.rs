@@ -6,8 +6,6 @@ pub struct State {
 
 impl State {
     pub fn new() -> Self {
-        State {
-            mocks: vec![],
-        }
+        State { mocks: vec![] }
     }
 }

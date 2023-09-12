@@ -1,7 +1,7 @@
-use std::sync::{Arc, RwLock};
 use hyper::StatusCode;
 use hyper::{Body, Request};
 use rand;
+use std::sync::{Arc, RwLock};
 
 use super::state::State;
 
@@ -45,7 +45,7 @@ impl Mock {
                 path: path.to_owned(),
                 response: Response::default(),
                 num_called: 0,
-            }
+            },
         }
     }
 
@@ -69,13 +69,19 @@ impl Mock {
     pub fn assert(&self) {
         let state = self.state.clone();
         let state = state.read().unwrap();
-        let num_called = state.mocks.iter().find(|mock| mock.inner.id == self.inner.id).unwrap().inner.num_called;
+        let num_called = state
+            .mocks
+            .iter()
+            .find(|mock| mock.inner.id == self.inner.id)
+            .unwrap()
+            .inner
+            .num_called;
 
         if num_called == 0 {
             panic!("Mock not called");
         }
     }
-    
+
     pub fn matches(&self, request: &Request<Body>) -> bool {
         let method = request.method().to_string();
         let path = request.uri().path().to_string();
