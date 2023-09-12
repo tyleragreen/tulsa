@@ -1,9 +1,30 @@
-use std::sync::mpsc::{SendError, Sender};
+use std::sync::mpsc::{self, SendError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tulsa::model::{AsyncTask, SyncTask};
+use tulsa::scheduler;
 
 use crate::fetcher::{fetch_sync, recurring_fetch, Feed};
+
+pub enum Mode {
+    Sync,
+    Async,
+}
+
+pub fn build(mode: Mode) -> Arc<dyn SchedulerInterface + Send + Sync + 'static> {
+    match mode {
+        Mode::Async => {
+            let (sender, receiver) = mpsc::channel();
+            scheduler::init_async(receiver);
+            Arc::new(AsyncScheduler::new(Arc::new(Mutex::new(sender))))
+        }
+        Mode::Sync => {
+            let (sender, receiver) = mpsc::channel();
+            scheduler::init_sync(receiver);
+            Arc::new(SyncScheduler::new(Arc::new(Mutex::new(sender))))
+        }
+    }
+}
 
 pub trait TaskSender<T> {
     fn send(&self, task: T) -> Result<(), SendError<T>>;

@@ -7,11 +7,10 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, RwLock};
-use tulsa::model::{AsyncTask, SyncTask};
+use std::sync::{Arc, RwLock};
 
 use crate::fetcher::Feed;
-use crate::scheduler::{AsyncScheduler, SchedulerInterface, TaskSender};
+use crate::scheduler::SchedulerInterface;
 
 #[derive(Clone)]
 struct AppState {
@@ -20,14 +19,11 @@ struct AppState {
     scheduler_interface: Arc<dyn SchedulerInterface + Send + Sync>,
 }
 
-pub fn app<S>(sender: Arc<Mutex<S>>) -> Router
-where
-    S: TaskSender<AsyncTask> + Send + 'static,
-{
+pub fn app(scheduler_interface: Arc<dyn SchedulerInterface + Send + Sync>) -> Router {
     let state = AppState {
         feed_id: Arc::new(RwLock::new(1)),
         db: Arc::new(RwLock::new(HashMap::new())),
-        scheduler_interface: Arc::new(AsyncScheduler::new(sender)),
+        scheduler_interface,
     };
     Router::new()
         .route("/", get(status_handler))
@@ -165,6 +161,9 @@ async fn list_handler(state: State<AppState>) -> impl IntoResponse {
 mod api_tests {
     use crate::deps::mime;
     use crate::fetcher::Feed;
+    use crate::scheduler::AsyncScheduler;
+    use crate::scheduler::TaskSender;
+    use tulsa::model::AsyncTask;
 
     use super::*;
     use axum::{
@@ -172,6 +171,7 @@ mod api_tests {
         http::{self, Request, StatusCode},
     };
     use std::sync::mpsc::SendError;
+    use std::sync::Mutex;
     use tower::ServiceExt; // for `oneshot`
 
     struct MockSender<T> {
@@ -206,7 +206,8 @@ mod api_tests {
     #[tokio::test]
     async fn status() {
         let sender = Arc::new(Mutex::new(MockSender::new()));
-        let response = app(sender.clone())
+        let interface = Arc::new(AsyncScheduler::new(sender.clone()));
+        let response = app(interface)
             .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
             .await
             .unwrap();
@@ -221,7 +222,8 @@ mod api_tests {
     #[tokio::test]
     async fn invalid() {
         let sender = Arc::new(Mutex::new(MockSender::new()));
-        let response = app(sender.clone())
+        let interface = Arc::new(AsyncScheduler::new(sender));
+        let response = app(interface)
             .oneshot(
                 Request::builder()
                     .uri("/feed/abc")
@@ -237,7 +239,8 @@ mod api_tests {
         assert_eq!(body.len(), 0);
 
         let sender = Arc::new(Mutex::new(MockSender::new()));
-        let response = app(sender.clone())
+        let interface = Arc::new(AsyncScheduler::new(sender));
+        let response = app(interface)
             .oneshot(
                 Request::builder()
                     .uri("/feed/-1")
@@ -263,7 +266,8 @@ mod api_tests {
             headers,
         };
         let sender = Arc::new(Mutex::new(MockSender::new()));
-        let response = app(sender.clone())
+        let interface = Arc::new(AsyncScheduler::new(sender));
+        let response = app(interface)
             .oneshot(
                 Request::builder()
                     .method(http::Method::PUT)
@@ -278,7 +282,8 @@ mod api_tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
         let sender = Arc::new(Mutex::new(MockSender::new()));
-        let response = app(sender.clone())
+        let interface = Arc::new(AsyncScheduler::new(sender));
+        let response = app(interface)
             .oneshot(
                 Request::builder()
                     .method(http::Method::PUT)
@@ -304,7 +309,8 @@ mod api_tests {
         };
         let sender = Arc::new(Mutex::new(MockSender::new()));
         assert_eq!(sender.lock().unwrap().count(), 0);
-        let response = app(sender.clone())
+        let interface = Arc::new(AsyncScheduler::new(sender.clone()));
+        let response = app(interface)
             .oneshot(
                 Request::builder()
                     .method(http::Method::POST)
@@ -346,9 +352,10 @@ mod api_tests {
         };
 
         let sender = Arc::new(Mutex::new(MockSender::new()));
+        let interface = Arc::new(AsyncScheduler::new(sender));
         tokio::spawn(async move {
             axum::Server::bind(&addr.parse().unwrap())
-                .serve(app(sender.clone()).into_make_service())
+                .serve(app(interface).into_make_service())
                 .await
                 .unwrap();
         });

@@ -2,20 +2,16 @@
 mod tests {
     use reqwest::blocking::Client;
     use serde_json::json;
-    use std::sync::mpsc;
-    use std::sync::Arc;
-    use std::sync::Mutex;
     use std::thread;
     use std::time::Duration;
     use tokio::runtime::Builder;
-    use tulsa::scheduler;
 
     use gtfs_realtime_rust::api;
+    use gtfs_realtime_rust::scheduler::{build, Mode};
 
     #[test]
     fn integration() {
-        let (sender, receiver) = mpsc::channel();
-        scheduler::init_async(receiver);
+        let interface = build(Mode::Async);
 
         thread::spawn(move || {
             let runtime = Builder::new_multi_thread().enable_io().build().unwrap();
@@ -23,7 +19,7 @@ mod tests {
             let address: &str = "0.0.0.0:3000";
             runtime.block_on(async {
                 axum::Server::bind(&address.parse().unwrap())
-                    .serve(api::app(Arc::new(Mutex::new(sender))).into_make_service())
+                    .serve(api::app(interface).into_make_service())
                     .await
                     .unwrap();
             });
