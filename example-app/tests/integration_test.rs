@@ -9,9 +9,8 @@ mod tests {
     use gtfs_realtime_rust::api;
     use gtfs_realtime_rust::scheduler::{build, Mode};
 
-    #[test]
-    fn integration() {
-        let interface = build(Mode::Async);
+    fn run(mode: Mode) {
+        let interface = build(mode);
 
         thread::spawn(move || {
             let runtime = Builder::new_multi_thread().enable_io().build().unwrap();
@@ -48,5 +47,15 @@ mod tests {
                 assert!(false);
             }
         }
+    }
+
+    #[test]
+    fn async_run() {
+        run(Mode::Async);
+    }
+
+    #[test]
+    fn sync_run() {
+        run(Mode::Sync);
     }
 }
