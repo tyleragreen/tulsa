@@ -8,8 +8,8 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
+    use tulsa::model::{AsyncTask, SyncTask};
     use tulsa::scheduler;
-    use tulsa::model::{SyncTask, AsyncTask};
 
     fn confirm_wc(file_path: &str, expected: i32) {
         let output = Command::new("wc")
@@ -72,7 +72,7 @@ mod tests {
             Err(e) => {
                 eprintln!("{}", e);
                 assert!(false)
-            },
+            }
         }
 
         // Wait for the task to finish and then confirm the file has the correct contents
@@ -100,7 +100,7 @@ mod tests {
             Err(e) => {
                 eprintln!("{}", e);
                 assert!(false)
-            },
+            }
         }
 
         // Wait for the task to finish and then confirm the file has the correct contents
@@ -113,7 +113,7 @@ mod tests {
             Err(e) => {
                 eprintln!("{}", e);
                 assert!(false)
-            },
+            }
         }
 
         thread::sleep(Duration::from_millis(550));
@@ -154,7 +154,7 @@ mod tests {
             Err(e) => {
                 eprintln!("{}", e);
                 assert!(false)
-            },
+            }
         }
 
         // Wait for the task to finish and then confirm the file has the correct contents
@@ -182,7 +182,7 @@ mod tests {
             Err(e) => {
                 eprintln!("{}", e);
                 assert!(false)
-            },
+            }
         }
 
         // Wait for the task to finish and then confirm the file has the correct contents
@@ -195,7 +195,7 @@ mod tests {
             Err(e) => {
                 eprintln!("{}", e);
                 assert!(false)
-            },
+            }
         }
 
         thread::sleep(Duration::from_millis(550));

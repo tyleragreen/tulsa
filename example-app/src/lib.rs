@@ -1,5 +1,6 @@
 pub mod api;
 pub mod fetcher;
+pub mod scheduler;
 
 // The deps module is an effort to re-implement my third-party dependencies as
 // a learning exercise. I do not plan to make this code public and my
