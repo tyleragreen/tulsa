@@ -1,16 +1,14 @@
 use std::net::SocketAddr;
-use std::sync::{Arc, mpsc, Mutex};
 use tokio::runtime::Builder;
-use tulsa::scheduler;
 
 use gtfs_realtime_rust::api;
+use gtfs_realtime_rust::scheduler::{build, Mode};
 
 fn main() {
-    let (sender, receiver) = mpsc::channel();
-    scheduler::init_async(receiver);
-
     let address = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("Starting server on {}.", address);
+
+    let interface = build(Mode::Async);
 
     // We use a runtime::Builder to specify the number of threads and
     // their name.
@@ -25,7 +23,7 @@ fn main() {
 
     runtime.block_on(async {
         axum::Server::bind(&address)
-            .serve(api::app(Arc::new(Mutex::new(sender))).into_make_service())
+            .serve(api::app(interface).into_make_service())
             .await
             .unwrap();
     });

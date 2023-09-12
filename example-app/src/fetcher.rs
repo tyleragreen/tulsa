@@ -1,9 +1,9 @@
 use crate::fetcher::transit::FeedMessage;
-use prost::Message; // needed for FeedMessage::decode
 use prost::bytes::Bytes;
+use prost::Message;
 use reqwest::Client;
-use ureq;
 use tokio::time::{Duration, Interval};
+use ureq;
 
 mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
@@ -47,9 +47,12 @@ async fn fetch(feed: &Feed) -> usize {
         .map_err(|e| {
             eprintln!("Error fetching {}: {}", feed.name, e);
             e
-        }).unwrap();
+        })
+        .unwrap();
 
-    let bytes = response.bytes().await
+    let bytes = response
+        .bytes()
+        .await
         .map_err(|e| eprintln!("Error reading {}: {}", feed.name, e))
         .unwrap();
 
@@ -81,7 +84,8 @@ pub fn fetch_sync(feed: &Feed) -> usize {
         .map_err(|e| {
             eprintln!("Error fetching {}: {}", feed.name, e);
             e
-        }).unwrap();
+        })
+        .unwrap();
 
     let mut vec_bytes = Vec::new();
     response.into_reader().read_to_end(&mut vec_bytes).unwrap();
