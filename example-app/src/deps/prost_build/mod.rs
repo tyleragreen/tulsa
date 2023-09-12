@@ -1,30 +1,30 @@
-use std::process::Command;
-use std::io::{Error, ErrorKind, Result};
 use prost::bytes::Bytes;
-use std::fs;
-use std::env;
-use std::path::PathBuf;
-use std::ffi::OsString;
 use std::collections::HashMap;
 use std::default;
+use std::env;
+use std::ffi::OsString;
+use std::fs;
+use std::io::{Error, ErrorKind, Result};
+use std::path::PathBuf;
+use std::process::Command;
 
 use prost::Message;
 use prost_types::{FileDescriptorProto, FileDescriptorSet};
 
 mod ast;
 mod code_generator;
-mod message_graph;
-mod protobuf;
-mod path;
 mod extern_paths;
 mod ident;
+mod message_graph;
+mod path;
+mod protobuf;
 
 use ast::Service;
 use code_generator::CodeGenerator;
-use message_graph::MessageGraph;
 use extern_paths::ExternPaths;
-use path::PathMap;
 use ident::to_snake;
+use message_graph::MessageGraph;
+use path::PathMap;
 
 pub trait ServiceGenerator {
     fn generate(&self, service: Service, buf: &mut String);
@@ -45,7 +45,6 @@ impl Default for MapType {
         MapType::HashMap
     }
 }
-
 
 #[derive(Clone, Copy)]
 enum BytesType {
@@ -122,19 +121,14 @@ impl Config {
                 (
                     Module::from_protobuf_package_name(descriptor.package()),
                     descriptor,
-                    )
+                )
             })
-        .collect::<Vec<_>>();
+            .collect::<Vec<_>>();
 
         let file_names = requests
             .iter()
-            .map(|req| {
-                (
-                    req.0.clone(),
-                    req.0.to_file_name_or("mod.rs"),
-                    )
-            })
-        .collect::<HashMap<Module, String>>();
+            .map(|req| (req.0.clone(), req.0.to_file_name_or("mod.rs")))
+            .collect::<HashMap<Module, String>>();
 
         let modules = self.generate(requests).unwrap();
         for (module, content) in &modules {
@@ -148,7 +142,7 @@ impl Config {
 
     pub fn generate(
         &mut self,
-        requests: Vec<(Module, FileDescriptorProto)>
+        requests: Vec<(Module, FileDescriptorProto)>,
     ) -> Result<HashMap<Module, String>> {
         let mut modules = HashMap::new();
         let mut packages = HashMap::new();
@@ -170,11 +164,7 @@ impl Config {
 
         Ok(modules)
     }
-    pub fn compile_protos(
-        &mut self,
-        protos: &[&str],
-        includes: &[&str],
-    ) -> Result<()> {
+    pub fn compile_protos(&mut self, protos: &[&str], includes: &[&str]) -> Result<()> {
         let file_descriptor_set_path = "/tmp/prost-build-descriptor-set.pb";
         eprintln!("Compiling protos");
         let mut cmd = Command::new("protoc");
@@ -201,7 +191,10 @@ impl Config {
                 if output.status.success() {
                     Ok(())
                 } else {
-                    Err(std::io::Error::new(std::io::ErrorKind::Other, "protoc failed"))
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "protoc failed",
+                    ))
                 }
             }
             Err(e) => Err(e),
@@ -209,8 +202,8 @@ impl Config {
         dbg!(&result);
         let buf = fs::read(file_descriptor_set_path)?;
 
-        let file_descriptor_set = FileDescriptorSet::decode(&*buf)
-            .map_err(|e| Error::new(ErrorKind::InvalidInput, e))?;
+        let file_descriptor_set =
+            FileDescriptorSet::decode(&*buf).map_err(|e| Error::new(ErrorKind::InvalidInput, e))?;
 
         self.compile_fds(file_descriptor_set)
     }
@@ -242,7 +235,6 @@ impl default::Default for Config {
         }
     }
 }
-
 
 pub fn compile_protos(protos: &[&str], includes: &[&str]) -> Result<()> {
     Config::new().compile_protos(protos, includes)
