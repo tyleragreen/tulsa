@@ -6,31 +6,18 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::Duration;
-use std::{
-    collections::HashMap,
-    sync::mpsc::{SendError, Sender},
-};
 use tulsa::model::{AsyncTask, SyncTask};
 
-use crate::fetcher::{fetch_sync, recurring_fetch, Feed};
-
-pub trait TaskSender<T> {
-    fn send(&self, task: T) -> Result<(), SendError<T>>;
-}
-
-impl<T> TaskSender<T> for Sender<T> {
-    fn send(&self, task: T) -> Result<(), SendError<T>> {
-        self.send(task)
-    }
-}
+use crate::fetcher::Feed;
+use crate::scheduler::{AsyncScheduler, SchedulerInterface, TaskSender};
 
 #[derive(Clone)]
 struct AppState {
     feed_id: Arc<RwLock<usize>>,
     db: Arc<RwLock<HashMap<usize, Feed>>>,
-    sender: Arc<Mutex<dyn TaskSender<AsyncTask> + Send + 'static>>,
+    scheduler_interface: Arc<dyn SchedulerInterface + Send + Sync>,
 }
 
 pub fn app<S>(sender: Arc<Mutex<S>>) -> Router
@@ -40,7 +27,7 @@ where
     let state = AppState {
         feed_id: Arc::new(RwLock::new(1)),
         db: Arc::new(RwLock::new(HashMap::new())),
-        sender,
+        scheduler_interface: Arc::new(AsyncScheduler::new(sender)),
     };
     Router::new()
         .route("/", get(status_handler))
@@ -88,16 +75,7 @@ async fn post_handler(
     state.db.write().unwrap().insert(id, feed.clone());
     *(state.feed_id.write().unwrap()) += 1;
 
-    let feed_clone = feed.clone();
-    let action = AsyncTask::new(id, recurring_fetch(feed_clone));
-    //let action = SyncTask::new(id, Duration::from_secs(feed.frequency), move || {
-    //    fetch_sync(&feed_clone);
-    //});
-    let result = state.sender.lock().unwrap().send(action);
-
-    if let Err(e) = result {
-        println!("{}", e);
-    }
+    state.scheduler_interface.create(&feed);
 
     (StatusCode::CREATED, Json(feed))
 }
@@ -146,16 +124,7 @@ async fn put_handler(
 
     db.insert(id, feed.clone());
 
-    let feed_clone = feed.clone();
-    let action = AsyncTask::update(id, recurring_fetch(feed_clone));
-    //let action = SyncTask::update(id, Duration::from_secs(feed.frequency), move || {
-    //    fetch_sync(&feed_clone);
-    //});
-    let result = state.sender.lock().unwrap().send(action);
-
-    if let Err(e) = result {
-        println!("{}", e);
-    }
+    state.scheduler_interface.update(&feed);
 
     Ok(Json(feed))
 }
@@ -167,19 +136,21 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
             return Err(StatusCode::BAD_REQUEST);
         }
     };
+
+    let feed = {
+        let db = state.db.read().unwrap();
+        let feed = db.get(&id);
+        let feed = match feed {
+            None => return Err(StatusCode::NOT_FOUND),
+            Some(f) => f,
+        };
+        feed.clone()
+    };
+
     let mut db = state.db.write().unwrap();
-
-    if !db.contains_key(&id) {
-        return Err(StatusCode::NOT_FOUND);
-    }
-
     db.remove(&id);
-    let action = AsyncTask::stop(id);
-    let result = state.sender.lock().unwrap().send(action);
 
-    if let Err(e) = result {
-        println!("{}", e);
-    }
+    state.scheduler_interface.delete(&feed);
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -200,6 +171,7 @@ mod api_tests {
         body::Body,
         http::{self, Request, StatusCode},
     };
+    use std::sync::mpsc::SendError;
     use tower::ServiceExt; // for `oneshot`
 
     struct MockSender<T> {
