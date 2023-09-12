@@ -16,12 +16,12 @@ pub fn build(mode: Mode) -> Arc<dyn SchedulerInterface + Send + Sync + 'static> 
         Mode::Async => {
             let (sender, receiver) = mpsc::channel();
             scheduler::init_async(receiver);
-            Arc::new(AsyncScheduler::new(Arc::new(Mutex::new(sender))))
+            Arc::new(Scheduler::new(Arc::new(Mutex::new(sender))))
         }
         Mode::Sync => {
             let (sender, receiver) = mpsc::channel();
             scheduler::init_sync(receiver);
-            Arc::new(SyncScheduler::new(Arc::new(Mutex::new(sender))))
+            Arc::new(Scheduler::new(Arc::new(Mutex::new(sender))))
         }
     }
 }
@@ -36,12 +36,8 @@ pub trait SchedulerInterface {
     fn delete(&self, feed: &Feed);
 }
 
-pub struct SyncScheduler {
-    sender: Arc<Mutex<dyn TaskSender<SyncTask> + Send + 'static>>,
-}
-
-pub struct AsyncScheduler {
-    sender: Arc<Mutex<dyn TaskSender<AsyncTask> + Send + 'static>>,
+pub struct Scheduler<T> {
+    sender: Arc<Mutex<dyn TaskSender<T> + Send + 'static>>,
 }
 
 impl<T> TaskSender<T> for Sender<T> {
@@ -50,13 +46,13 @@ impl<T> TaskSender<T> for Sender<T> {
     }
 }
 
-impl SyncScheduler {
-    pub fn new(sender: Arc<Mutex<dyn TaskSender<SyncTask> + Send + 'static>>) -> Self {
+impl<T> Scheduler<T> {
+    pub fn new(sender: Arc<Mutex<dyn TaskSender<T> + Send + 'static>>) -> Self {
         Self { sender }
     }
 }
 
-impl SchedulerInterface for SyncScheduler {
+impl SchedulerInterface for Scheduler<SyncTask> {
     fn create(&self, feed: &Feed) {
         let feed_clone = feed.clone();
         let action = SyncTask::new(feed.id, Duration::from_secs(feed.frequency), move || {
@@ -91,13 +87,7 @@ impl SchedulerInterface for SyncScheduler {
     }
 }
 
-impl AsyncScheduler {
-    pub fn new(sender: Arc<Mutex<dyn TaskSender<AsyncTask> + Send + 'static>>) -> Self {
-        Self { sender }
-    }
-}
-
-impl SchedulerInterface for AsyncScheduler {
+impl SchedulerInterface for Scheduler<AsyncTask> {
     fn create(&self, feed: &Feed) {
         let feed_clone = feed.clone();
         let action = AsyncTask::new(feed.id, recurring_fetch(feed_clone));
