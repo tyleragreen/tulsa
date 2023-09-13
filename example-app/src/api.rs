@@ -71,8 +71,7 @@ async fn post_handler(
     state.db.write().unwrap().insert(id, feed.clone());
     *(state.feed_id.write().unwrap()) += 1;
 
-    state.scheduler_interface.create(&feed);
-
+    state.scheduler_interface.create(feed.clone());
     (StatusCode::CREATED, Json(feed))
 }
 
@@ -85,7 +84,6 @@ async fn get_handler(path: Path<String>, state: State<AppState>) -> impl IntoRes
     };
 
     let db = state.db.read().unwrap();
-
     if let Some(feed) = db.get(&id).cloned() {
         Ok(Json(feed))
     } else {
@@ -117,11 +115,9 @@ async fn put_handler(
         frequency: payload.frequency,
         headers: payload.headers,
     };
-
     db.insert(id, feed.clone());
 
-    state.scheduler_interface.update(&feed);
-
+    state.scheduler_interface.update(feed.clone());
     Ok(Json(feed))
 }
 
@@ -144,10 +140,9 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
     };
 
     let mut db = state.db.write().unwrap();
-    db.remove(&id);
+    db.remove(&feed.id);
 
-    state.scheduler_interface.delete(&feed);
-
+    state.scheduler_interface.delete(feed);
     Ok(StatusCode::NO_CONTENT)
 }
 
