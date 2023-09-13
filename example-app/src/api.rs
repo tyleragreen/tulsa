@@ -83,8 +83,7 @@ async fn get_handler(path: Path<String>, state: State<AppState>) -> impl IntoRes
         }
     };
 
-    let db = state.db.read().unwrap();
-    if let Some(feed) = db.get(&id).cloned() {
+    if let Some(feed) = state.db.read().unwrap().get(&id).cloned() {
         Ok(Json(feed))
     } else {
         Err(StatusCode::NOT_FOUND)
@@ -103,8 +102,7 @@ async fn put_handler(
         }
     };
 
-    let mut db = state.db.write().unwrap();
-    if db.get(&id).is_none() {
+    if state.db.read().unwrap().get(&id).is_none() {
         return Err(StatusCode::NOT_FOUND);
     }
 
@@ -115,7 +113,7 @@ async fn put_handler(
         frequency: payload.frequency,
         headers: payload.headers,
     };
-    db.insert(id, feed.clone());
+    state.db.write().unwrap().insert(id, feed.clone());
 
     state.scheduler_interface.update(feed.clone());
     Ok(Json(feed))
@@ -129,26 +127,18 @@ async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl Into
         }
     };
 
-    let feed = {
-        let db = state.db.read().unwrap();
-        let feed = db.get(&id);
-        let feed = match feed {
-            None => return Err(StatusCode::NOT_FOUND),
-            Some(f) => f,
-        };
-        feed.clone()
+    let feed = match state.db.read().unwrap().get(&id).cloned() {
+        None => return Err(StatusCode::NOT_FOUND),
+        Some(f) => f,
     };
-
-    let mut db = state.db.write().unwrap();
-    db.remove(&feed.id);
+    state.db.write().unwrap().remove(&feed.id);
 
     state.scheduler_interface.delete(feed);
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn list_handler(state: State<AppState>) -> impl IntoResponse {
-    let db = state.db.read().unwrap();
-    let feeds: Vec<Feed> = db.values().cloned().collect();
+    let feeds: Vec<Feed> = state.db.read().unwrap().values().cloned().collect();
     Json(feeds)
 }
 
