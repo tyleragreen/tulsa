@@ -54,7 +54,6 @@ struct CreateFeed {
     headers: HashMap<String, String>,
 }
 
-#[axum_macros::debug_handler]
 async fn post_handler(
     state: State<AppState>,
     Json(payload): Json<CreateFeed>,
@@ -68,25 +67,22 @@ async fn post_handler(
         headers: payload.headers,
     };
 
-    state.db.write().unwrap().insert(id, feed.clone());
     *(state.feed_id.write().unwrap()) += 1;
-
+    state.db.write().unwrap().insert(id, feed.clone());
     state.scheduler_interface.create(feed.clone());
+
     (StatusCode::CREATED, Json(feed))
 }
 
 async fn get_handler(path: Path<String>, state: State<AppState>) -> impl IntoResponse {
     let id: usize = match path.parse() {
         Ok(i) => i,
-        Err(_) => {
-            return Err(StatusCode::BAD_REQUEST);
-        }
+        Err(_) => return Err(StatusCode::BAD_REQUEST),
     };
 
-    if let Some(feed) = state.db.read().unwrap().get(&id).cloned() {
-        Ok(Json(feed))
-    } else {
-        Err(StatusCode::NOT_FOUND)
+    match state.db.read().unwrap().get(&id).cloned() {
+        Some(feed) => Ok(Json(feed)),
+        None => Err(StatusCode::NOT_FOUND),
     }
 }
 
@@ -97,11 +93,8 @@ async fn put_handler(
 ) -> impl IntoResponse {
     let id: usize = match path.parse() {
         Ok(i) => i,
-        Err(_) => {
-            return Err(StatusCode::BAD_REQUEST);
-        }
+        Err(_) => return Err(StatusCode::BAD_REQUEST),
     };
-
     if state.db.read().unwrap().get(&id).is_none() {
         return Err(StatusCode::NOT_FOUND);
     }
@@ -113,27 +106,26 @@ async fn put_handler(
         frequency: payload.frequency,
         headers: payload.headers,
     };
-    state.db.write().unwrap().insert(id, feed.clone());
 
+    state.db.write().unwrap().insert(id, feed.clone());
     state.scheduler_interface.update(feed.clone());
+
     Ok(Json(feed))
 }
 
 async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl IntoResponse {
     let id: usize = match path.parse() {
         Ok(i) => i,
-        Err(_) => {
-            return Err(StatusCode::BAD_REQUEST);
-        }
+        Err(_) => return Err(StatusCode::BAD_REQUEST),
     };
-
     let feed = match state.db.read().unwrap().get(&id).cloned() {
-        None => return Err(StatusCode::NOT_FOUND),
         Some(f) => f,
+        None => return Err(StatusCode::NOT_FOUND),
     };
-    state.db.write().unwrap().remove(&feed.id);
 
+    state.db.write().unwrap().remove(&feed.id);
     state.scheduler_interface.delete(feed);
+
     Ok(StatusCode::NO_CONTENT)
 }
 
