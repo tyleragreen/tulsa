@@ -11,16 +11,23 @@ use crate::model::{AsyncTask, Operation, SyncTask};
 
 struct AsyncScheduler {
     tasks: HashMap<usize, TaskJoinHandle<()>>,
+    num_runtime_threads: usize,
 }
 
 impl AsyncScheduler {
+    fn new() -> Self {
+        AsyncScheduler {
+            tasks: HashMap::new(),
+            num_runtime_threads: 1,
+        }
+    }
+
     fn listen(&mut self, receiver: Receiver<AsyncTask>) {
         println!("AsyncScheduler initialized.");
 
-        let num_threads = 1;
         let runtime = TokioBuilder::new_multi_thread()
             .enable_all()
-            .worker_threads(num_threads)
+            .worker_threads(self.num_runtime_threads)
             .thread_name("scheduler-runtime")
             .build()
             .unwrap();
@@ -56,12 +63,6 @@ impl AsyncScheduler {
                 self.tasks.remove(&async_task.id);
                 println!("Stopped {}", async_task.id);
             }
-        }
-    }
-
-    fn new() -> Self {
-        AsyncScheduler {
-            tasks: HashMap::new(),
         }
     }
 }
@@ -130,6 +131,12 @@ struct ThreadScheduler {
 }
 
 impl ThreadScheduler {
+    fn new() -> Self {
+        ThreadScheduler {
+            tasks: Arc::new(Mutex::new(Vec::<TaskRunner>::new())),
+        }
+    }
+
     fn listen(&mut self, receiver: Receiver<SyncTask>) {
         println!("ThreadScheduler initialized.");
 
@@ -174,12 +181,6 @@ impl ThreadScheduler {
                     runners.remove(idx);
                 }
             }
-        }
-    }
-
-    fn new() -> Self {
-        ThreadScheduler {
-            tasks: Arc::new(Mutex::new(Vec::<TaskRunner>::new())),
         }
     }
 }
