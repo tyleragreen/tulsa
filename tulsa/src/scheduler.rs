@@ -2,15 +2,15 @@ use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
-use std::thread;
+use std::thread::{self, Builder as ThreadBuilder, JoinHandle as ThreadJoinHandle};
 use std::time::Duration;
-use tokio::runtime::Builder;
-use tokio::task::JoinHandle;
+use tokio::runtime::Builder as TokioBuilder;
+use tokio::task::JoinHandle as TaskJoinHandle;
 
 use crate::model::{AsyncTask, Operation, SyncTask};
 
 struct AsyncScheduler {
-    tasks: HashMap<usize, JoinHandle<()>>,
+    tasks: HashMap<usize, TaskJoinHandle<()>>,
 }
 
 impl AsyncScheduler {
@@ -18,7 +18,7 @@ impl AsyncScheduler {
         println!("AsyncScheduler initialized.");
 
         let num_threads = 1;
-        let runtime = Builder::new_multi_thread()
+        let runtime = TokioBuilder::new_multi_thread()
             .enable_all()
             .worker_threads(num_threads)
             .thread_name("scheduler-runtime")
@@ -69,7 +69,7 @@ impl AsyncScheduler {
 struct TaskRunner {
     id: usize,
     frequency: Duration,
-    thread_handle: Option<thread::JoinHandle<()>>,
+    thread_handle: Option<ThreadJoinHandle<()>>,
     runner_data: Arc<Mutex<RunnerData>>,
 }
 
@@ -93,7 +93,7 @@ impl TaskRunner {
         println!("Starting {}", self.id);
         let frequency = self.frequency.clone();
         let runner_data = self.runner_data.clone();
-        let builder = thread::Builder::new().name("task".to_string());
+        let builder = ThreadBuilder::new().name("task".to_string());
 
         let handle = builder.spawn(move || loop {
             {
@@ -186,7 +186,7 @@ impl ThreadScheduler {
 
 pub fn init_async(receiver: Receiver<AsyncTask>) {
     let mut scheduler = AsyncScheduler::new();
-    let builder = thread::Builder::new().name("scheduler".to_string());
+    let builder = ThreadBuilder::new().name("scheduler".to_string());
     builder
         .spawn(move || scheduler.listen(receiver))
         .expect("Failed to spawn scheduler thread.");
@@ -194,7 +194,7 @@ pub fn init_async(receiver: Receiver<AsyncTask>) {
 
 pub fn init_sync(receiver: Receiver<SyncTask>) {
     let mut scheduler = ThreadScheduler::new();
-    let builder = thread::Builder::new().name("scheduler".to_string());
+    let builder = ThreadBuilder::new().name("scheduler".to_string());
     builder
         .spawn(move || scheduler.listen(receiver))
         .expect("Failed to spawn scheduler thread.");
