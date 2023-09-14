@@ -94,7 +94,7 @@ impl TaskRunner {
 
     fn start(&mut self, func: Pin<Box<dyn Fn() + Send + Sync + 'static>>) {
         println!("Starting {}", self.id);
-        let frequency = self.frequency.clone();
+        let frequency = self.frequency;
         let runner_data = self.runner_data.clone();
         let builder = ThreadBuilder::new().name("task".to_string());
 
@@ -159,30 +159,27 @@ impl ThreadScheduler {
             .position(|runner| runner.id == id)
     }
 
+    fn start(&mut self, task: SyncTask) {
+        let mut runner = TaskRunner::new(task.id, task.frequency);
+        runner.start(task.func);
+        self.tasks.lock().unwrap().push(runner);
+    }
+
+    fn stop(&mut self, task_id: usize) {
+        if let Some(idx) = self.find_index(task_id) {
+            let mut runners = self.tasks.lock().unwrap();
+            runners[idx].stop();
+            runners.remove(idx);
+        }
+    }
+
     fn handle(&mut self, task: SyncTask) {
         match task.op {
-            Operation::Create => {
-                let mut runner = TaskRunner::new(task.id, task.frequency);
-                runner.start(task.func);
-                self.tasks.lock().unwrap().push(runner);
-            }
+            Operation::Create => self.start(task),
+            Operation::Delete => self.stop(task.id),
             Operation::Update => {
-                if let Some(idx) = self.find_index(task.id) {
-                    let mut runners = self.tasks.lock().unwrap();
-                    runners[idx].stop();
-                    runners.remove(idx);
-                }
-
-                let mut runner = TaskRunner::new(task.id, task.frequency);
-                runner.start(task.func);
-                self.tasks.lock().unwrap().push(runner);
-            }
-            Operation::Delete => {
-                if let Some(idx) = self.find_index(task.id) {
-                    let mut runners = self.tasks.lock().unwrap();
-                    runners[idx].stop();
-                    runners.remove(idx);
-                }
+                self.stop(task.id);
+                self.start(task);
             }
         }
     }
