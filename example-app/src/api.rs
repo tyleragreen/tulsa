@@ -139,7 +139,7 @@ mod api_tests {
     use crate::deps::mime;
     use crate::fetcher::Feed;
     use crate::scheduler_interface::{SchedulerInterface, TaskSender};
-    use tulsa::model::AsyncTask;
+    use tulsa::AsyncTask;
 
     use super::*;
     use axum::{
