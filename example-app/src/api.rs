@@ -10,16 +10,16 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use crate::fetcher::Feed;
-use crate::scheduler::SchedulerInterface;
+use crate::scheduler_interface::ToScheduler;
 
 #[derive(Clone)]
 struct AppState {
     feed_id: Arc<RwLock<usize>>,
     db: Arc<RwLock<HashMap<usize, Feed>>>,
-    scheduler_interface: Arc<dyn SchedulerInterface + Send + Sync>,
+    scheduler_interface: Arc<dyn ToScheduler + Send + Sync>,
 }
 
-pub fn app(scheduler_interface: Arc<dyn SchedulerInterface + Send + Sync>) -> Router {
+pub fn app(scheduler_interface: Arc<dyn ToScheduler + Send + Sync>) -> Router {
     let state = AppState {
         feed_id: Arc::new(RwLock::new(1)),
         db: Arc::new(RwLock::new(HashMap::new())),
@@ -138,7 +138,7 @@ async fn list_handler(state: State<AppState>) -> impl IntoResponse {
 mod api_tests {
     use crate::deps::mime;
     use crate::fetcher::Feed;
-    use crate::scheduler::{Scheduler, TaskSender};
+    use crate::scheduler_interface::{SchedulerInterface, TaskSender};
     use tulsa::model::AsyncTask;
 
     use super::*;
@@ -182,7 +182,7 @@ mod api_tests {
     #[tokio::test]
     async fn status() {
         let sender = Arc::new(Mutex::new(MockSender::new()));
-        let interface = Arc::new(Scheduler::new(sender.clone()));
+        let interface = Arc::new(SchedulerInterface::new(sender.clone()));
         let response = app(interface)
             .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
             .await
@@ -198,7 +198,7 @@ mod api_tests {
     #[tokio::test]
     async fn invalid() {
         let sender = Arc::new(Mutex::new(MockSender::new()));
-        let interface = Arc::new(Scheduler::new(sender));
+        let interface = Arc::new(SchedulerInterface::new(sender));
         let response = app(interface)
             .oneshot(
                 Request::builder()
@@ -215,7 +215,7 @@ mod api_tests {
         assert_eq!(body.len(), 0);
 
         let sender = Arc::new(Mutex::new(MockSender::new()));
-        let interface = Arc::new(Scheduler::new(sender));
+        let interface = Arc::new(SchedulerInterface::new(sender));
         let response = app(interface)
             .oneshot(
                 Request::builder()
@@ -242,7 +242,7 @@ mod api_tests {
             headers,
         };
         let sender = Arc::new(Mutex::new(MockSender::new()));
-        let interface = Arc::new(Scheduler::new(sender));
+        let interface = Arc::new(SchedulerInterface::new(sender));
         let response = app(interface)
             .oneshot(
                 Request::builder()
@@ -258,7 +258,7 @@ mod api_tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
         let sender = Arc::new(Mutex::new(MockSender::new()));
-        let interface = Arc::new(Scheduler::new(sender));
+        let interface = Arc::new(SchedulerInterface::new(sender));
         let response = app(interface)
             .oneshot(
                 Request::builder()
@@ -285,7 +285,7 @@ mod api_tests {
         };
         let sender = Arc::new(Mutex::new(MockSender::new()));
         assert_eq!(sender.lock().unwrap().count(), 0);
-        let interface = Arc::new(Scheduler::new(sender.clone()));
+        let interface = Arc::new(SchedulerInterface::new(sender.clone()));
         let response = app(interface)
             .oneshot(
                 Request::builder()
@@ -328,7 +328,7 @@ mod api_tests {
         };
 
         let sender = Arc::new(Mutex::new(MockSender::new()));
-        let interface = Arc::new(Scheduler::new(sender));
+        let interface = Arc::new(SchedulerInterface::new(sender));
         tokio::spawn(async move {
             axum::Server::bind(&addr.parse().unwrap())
                 .serve(app(interface).into_make_service())

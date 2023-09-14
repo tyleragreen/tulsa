@@ -4,12 +4,13 @@ mod tests {
     use std::fs::OpenOptions;
     use std::io::prelude::*;
     use std::process::Command;
+    use std::sync::mpsc::Receiver;
+    use std::sync::mpsc::Sender;
     use std::sync::{mpsc, Mutex};
     use std::thread;
     use std::time::Duration;
 
-    use tulsa::model::{AsyncTask, SyncTask};
-    use tulsa::scheduler;
+    use tulsa::{AsyncTask, Scheduler, SyncTask};
 
     fn confirm_wc(file_path: &str, expected: i32) {
         let output = Command::new("wc")
@@ -55,8 +56,8 @@ mod tests {
 
     #[test]
     fn async_scheduler_create() {
-        let (sender, receiver) = mpsc::channel();
-        scheduler::init_async(receiver);
+        let (sender, receiver): (Sender<AsyncTask>, Receiver<AsyncTask>) = mpsc::channel();
+        Scheduler::new(receiver).run();
 
         static FILE_NAME: &'static str = "/tmp/tulsa_async_1.txt";
 
@@ -82,8 +83,8 @@ mod tests {
 
     #[test]
     fn async_scheduler_delete() {
-        let (sender, receiver) = mpsc::channel();
-        scheduler::init_async(receiver);
+        let (sender, receiver): (Sender<AsyncTask>, Receiver<AsyncTask>) = mpsc::channel();
+        Scheduler::new(receiver).run();
 
         let task_id: usize = 2;
         static FILE_NAME: &'static str = "/tmp/tulsa_async_2.txt";
@@ -137,8 +138,8 @@ mod tests {
 
     #[test]
     fn sync_scheduler_create() {
-        let (sender, receiver) = mpsc::channel();
-        scheduler::init_sync(receiver);
+        let (sender, receiver): (Sender<SyncTask>, Receiver<SyncTask>) = mpsc::channel();
+        Scheduler::new(receiver).run();
 
         static FILE_NAME: &'static str = "/tmp/tulsa_sync_1.txt";
 
@@ -164,8 +165,8 @@ mod tests {
 
     #[test]
     fn sync_scheduler_delete() {
-        let (sender, receiver) = mpsc::channel();
-        scheduler::init_sync(receiver);
+        let (sender, receiver): (Sender<SyncTask>, Receiver<SyncTask>) = mpsc::channel();
+        Scheduler::new(receiver).run();
 
         let task_id: usize = 2;
         static FILE_NAME: &'static str = "/tmp/tulsa_sync_2.txt";

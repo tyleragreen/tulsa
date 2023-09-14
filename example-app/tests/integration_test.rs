@@ -7,7 +7,7 @@ mod tests {
     use tokio::runtime::Builder;
 
     use gtfs_realtime_rust::api;
-    use gtfs_realtime_rust::scheduler::{build, Mode};
+    use gtfs_realtime_rust::scheduler_interface::{build, Mode};
 
     fn run(mode: Mode) {
         let interface = build(mode);

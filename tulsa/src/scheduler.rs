@@ -22,7 +22,7 @@ impl AsyncScheduler {
         }
     }
 
-    fn listen(&mut self, receiver: Receiver<AsyncTask>) {
+    fn listen(&mut self, receiver: Arc<Mutex<Receiver<AsyncTask>>>) {
         println!("AsyncScheduler initialized.");
 
         let runtime = TokioBuilder::new_multi_thread()
@@ -32,9 +32,11 @@ impl AsyncScheduler {
             .build()
             .unwrap();
 
+        let r = receiver.clone();
+
         runtime.block_on(async {
             loop {
-                match receiver.recv() {
+                match r.lock().unwrap().recv() {
                     Ok(async_task) => self.handle(async_task),
                     Err(e) => eprintln!("{}", e),
                 }
@@ -137,11 +139,12 @@ impl ThreadScheduler {
         }
     }
 
-    fn listen(&mut self, receiver: Receiver<SyncTask>) {
+    fn listen(&mut self, receiver: Arc<Mutex<Receiver<SyncTask>>>) {
         println!("ThreadScheduler initialized.");
 
+        let r = receiver.clone();
         loop {
-            match receiver.recv() {
+            match r.lock().unwrap().recv() {
                 Ok(task) => self.handle(task),
                 Err(e) => eprintln!("{}", e),
             }
@@ -185,18 +188,31 @@ impl ThreadScheduler {
     }
 }
 
-pub fn init_async(receiver: Receiver<AsyncTask>) {
-    let mut scheduler = AsyncScheduler::new();
-    let builder = ThreadBuilder::new().name("scheduler".to_string());
-    builder
-        .spawn(move || scheduler.listen(receiver))
-        .expect("Failed to spawn scheduler thread.");
+pub struct Scheduler<T> {
+    receiver: Arc<Mutex<Receiver<T>>>,
 }
 
-pub fn init_sync(receiver: Receiver<SyncTask>) {
-    let mut scheduler = ThreadScheduler::new();
-    let builder = ThreadBuilder::new().name("scheduler".to_string());
-    builder
-        .spawn(move || scheduler.listen(receiver))
-        .expect("Failed to spawn scheduler thread.");
+impl<T> Scheduler<T> {
+    pub fn new(receiver: Receiver<T>) -> Self {
+        let receiver = Arc::new(Mutex::new(receiver));
+        Self { receiver }
+    }
+}
+
+impl Scheduler<AsyncTask> {
+    pub fn run(self) {
+        ThreadBuilder::new()
+            .name("scheduler".to_string())
+            .spawn(|| AsyncScheduler::new().listen(self.receiver))
+            .expect("Failed to spawn scheduler thread.");
+    }
+}
+
+impl Scheduler<SyncTask> {
+    pub fn run(self) {
+        ThreadBuilder::new()
+            .name("scheduler".to_string())
+            .spawn(|| ThreadScheduler::new().listen(self.receiver))
+            .expect("Failed to spawn scheduler thread.");
+    }
 }
