@@ -44,26 +44,25 @@ impl AsyncScheduler {
         });
     }
 
-    fn handle(&mut self, async_task: AsyncTask) {
-        match async_task.op {
-            Operation::Create => {
-                let future = tokio::spawn(async_task.func);
-                self.tasks.insert(async_task.id, future);
-            }
-            Operation::Update => {
-                let task = &self.tasks[&async_task.id];
-                task.abort_handle().abort();
-                self.tasks.remove(&async_task.id);
-                println!("Stopped {}", async_task.id);
+    fn start(&mut self, task: AsyncTask) {
+        let future = tokio::spawn(task.func);
+        self.tasks.insert(task.id, future);
+    }
 
-                let future = tokio::spawn(async_task.func);
-                self.tasks.insert(async_task.id, future);
-            }
-            Operation::Delete => {
-                let task = &self.tasks[&async_task.id];
-                task.abort_handle().abort();
-                self.tasks.remove(&async_task.id);
-                println!("Stopped {}", async_task.id);
+    fn stop(&mut self, task_id: usize) {
+        let task = &self.tasks[&task_id];
+        task.abort_handle().abort();
+        self.tasks.remove(&task_id);
+        println!("Stopped {}", task_id);
+    }
+
+    fn handle(&mut self, task: AsyncTask) {
+        match task.op {
+            Operation::Create => self.start(task),
+            Operation::Delete => self.stop(task.id),
+            Operation::Update => {
+                self.stop(task.id);
+                self.start(task);
             }
         }
     }
