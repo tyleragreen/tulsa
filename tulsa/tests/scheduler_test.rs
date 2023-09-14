@@ -4,8 +4,6 @@ mod tests {
     use std::fs::OpenOptions;
     use std::io::prelude::*;
     use std::process::Command;
-    use std::sync::mpsc::Receiver;
-    use std::sync::mpsc::Sender;
     use std::sync::{mpsc, Mutex};
     use std::thread;
     use std::time::Duration;
@@ -72,8 +70,8 @@ mod tests {
 
     #[test]
     fn async_scheduler_create() {
-        let (sender, receiver): (Sender<AsyncTask>, Receiver<AsyncTask>) = mpsc::channel();
-        Scheduler::new(receiver).run();
+        let (sender, receiver) = mpsc::channel();
+        Scheduler::<AsyncTask>::new(receiver).run();
 
         static FILE_NAME: &'static str = "/tmp/tulsa_async_1.txt";
 
@@ -99,8 +97,8 @@ mod tests {
 
     #[test]
     fn async_scheduler_delete() {
-        let (sender, receiver): (Sender<AsyncTask>, Receiver<AsyncTask>) = mpsc::channel();
-        Scheduler::new(receiver).run();
+        let (sender, receiver) = mpsc::channel();
+        Scheduler::<AsyncTask>::new(receiver).run();
 
         let task_id: usize = 2;
         static FILE_NAME: &'static str = "/tmp/tulsa_async_2.txt";
@@ -139,8 +137,8 @@ mod tests {
 
     #[test]
     fn sync_scheduler_create() {
-        let (sender, receiver): (Sender<SyncTask>, Receiver<SyncTask>) = mpsc::channel();
-        Scheduler::new(receiver).run();
+        let (sender, receiver) = mpsc::channel();
+        Scheduler::<SyncTask>::new(receiver).run();
 
         static FILE_NAME: &'static str = "/tmp/tulsa_sync_1.txt";
 
@@ -166,8 +164,8 @@ mod tests {
 
     #[test]
     fn sync_scheduler_delete() {
-        let (sender, receiver): (Sender<SyncTask>, Receiver<SyncTask>) = mpsc::channel();
-        Scheduler::new(receiver).run();
+        let (sender, receiver) = mpsc::channel();
+        Scheduler::<SyncTask>::new(receiver).run();
 
         let task_id: usize = 2;
         static FILE_NAME: &'static str = "/tmp/tulsa_sync_2.txt";
