@@ -1,4 +1,4 @@
-use std::sync::mpsc::{self, Receiver, SendError, Sender};
+use std::sync::mpsc::{self, SendError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tulsa::{AsyncTask, Scheduler, SyncTask};
@@ -13,13 +13,13 @@ pub enum Mode {
 pub fn build(mode: Mode) -> Arc<dyn ToScheduler + Send + Sync + 'static> {
     match mode {
         Mode::Async => {
-            let (sender, receiver): (Sender<AsyncTask>, Receiver<AsyncTask>) = mpsc::channel();
-            Scheduler::new(receiver).run();
+            let (sender, receiver) = mpsc::channel();
+            Scheduler::<AsyncTask>::new(receiver).run();
             Arc::new(SchedulerInterface::new(Arc::new(Mutex::new(sender))))
         }
         Mode::Sync => {
-            let (sender, receiver): (Sender<SyncTask>, Receiver<SyncTask>) = mpsc::channel();
-            Scheduler::new(receiver).run();
+            let (sender, receiver) = mpsc::channel();
+            Scheduler::<SyncTask>::new(receiver).run();
             Arc::new(SchedulerInterface::new(Arc::new(Mutex::new(sender))))
         }
     }
