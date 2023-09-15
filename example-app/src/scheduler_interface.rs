@@ -1,8 +1,7 @@
 use std::sync::mpsc::{self, SendError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tulsa::model::{AsyncTask, SyncTask};
-use tulsa::scheduler;
+use tulsa::{AsyncTask, Scheduler, SyncTask};
 
 use crate::fetcher::{fetch_sync, recurring_fetch, Feed};
 
@@ -11,17 +10,17 @@ pub enum Mode {
     Async,
 }
 
-pub fn build(mode: Mode) -> Arc<dyn SchedulerInterface + Send + Sync + 'static> {
+pub fn build(mode: Mode) -> Arc<dyn ToScheduler + Send + Sync + 'static> {
     match mode {
         Mode::Async => {
             let (sender, receiver) = mpsc::channel();
-            scheduler::init_async(receiver);
-            Arc::new(Scheduler::new(Arc::new(Mutex::new(sender))))
+            Scheduler::<AsyncTask>::new(receiver).run();
+            Arc::new(SchedulerInterface::new(Arc::new(Mutex::new(sender))))
         }
         Mode::Sync => {
             let (sender, receiver) = mpsc::channel();
-            scheduler::init_sync(receiver);
-            Arc::new(Scheduler::new(Arc::new(Mutex::new(sender))))
+            Scheduler::<SyncTask>::new(receiver).run();
+            Arc::new(SchedulerInterface::new(Arc::new(Mutex::new(sender))))
         }
     }
 }
@@ -30,13 +29,14 @@ pub trait TaskSender<T> {
     fn send(&self, task: T) -> Result<(), SendError<T>>;
 }
 
-pub trait SchedulerInterface {
-    fn create(&self, feed: &Feed);
-    fn update(&self, feed: &Feed);
-    fn delete(&self, feed: &Feed);
+/// The [Feed] will be sent to another thread, so we require ownership.
+pub trait ToScheduler {
+    fn create(&self, feed: Feed);
+    fn update(&self, feed: Feed);
+    fn delete(&self, feed: Feed);
 }
 
-pub struct Scheduler<T> {
+pub struct SchedulerInterface<T> {
     sender: Arc<Mutex<dyn TaskSender<T> + Send + 'static>>,
 }
 
@@ -46,17 +46,16 @@ impl<T> TaskSender<T> for Sender<T> {
     }
 }
 
-impl<T> Scheduler<T> {
+impl<T> SchedulerInterface<T> {
     pub fn new(sender: Arc<Mutex<dyn TaskSender<T> + Send + 'static>>) -> Self {
         Self { sender }
     }
 }
 
-impl SchedulerInterface for Scheduler<SyncTask> {
-    fn create(&self, feed: &Feed) {
-        let feed_clone = feed.clone();
+impl ToScheduler for SchedulerInterface<SyncTask> {
+    fn create(&self, feed: Feed) {
         let action = SyncTask::new(feed.id, Duration::from_secs(feed.frequency), move || {
-            fetch_sync(&feed_clone);
+            fetch_sync(&feed);
         });
         let result = self.sender.lock().unwrap().send(action);
 
@@ -65,10 +64,9 @@ impl SchedulerInterface for Scheduler<SyncTask> {
         }
     }
 
-    fn update(&self, feed: &Feed) {
-        let feed_clone = feed.clone();
+    fn update(&self, feed: Feed) {
         let action = SyncTask::update(feed.id, Duration::from_secs(feed.frequency), move || {
-            fetch_sync(&feed_clone);
+            fetch_sync(&feed);
         });
         let result = self.sender.lock().unwrap().send(action);
 
@@ -77,7 +75,7 @@ impl SchedulerInterface for Scheduler<SyncTask> {
         }
     }
 
-    fn delete(&self, feed: &Feed) {
+    fn delete(&self, feed: Feed) {
         let action = SyncTask::stop(feed.id);
         let result = self.sender.lock().unwrap().send(action);
 
@@ -87,10 +85,9 @@ impl SchedulerInterface for Scheduler<SyncTask> {
     }
 }
 
-impl SchedulerInterface for Scheduler<AsyncTask> {
-    fn create(&self, feed: &Feed) {
-        let feed_clone = feed.clone();
-        let action = AsyncTask::new(feed.id, recurring_fetch(feed_clone));
+impl ToScheduler for SchedulerInterface<AsyncTask> {
+    fn create(&self, feed: Feed) {
+        let action = AsyncTask::new(feed.id, recurring_fetch(feed));
         let result = self.sender.lock().unwrap().send(action);
 
         if let Err(e) = result {
@@ -98,9 +95,8 @@ impl SchedulerInterface for Scheduler<AsyncTask> {
         }
     }
 
-    fn update(&self, feed: &Feed) {
-        let feed_clone = feed.clone();
-        let action = AsyncTask::update(feed.id, recurring_fetch(feed_clone));
+    fn update(&self, feed: Feed) {
+        let action = AsyncTask::update(feed.id, recurring_fetch(feed));
         let result = self.sender.lock().unwrap().send(action);
 
         if let Err(e) = result {
@@ -108,7 +104,7 @@ impl SchedulerInterface for Scheduler<AsyncTask> {
         }
     }
 
-    fn delete(&self, feed: &Feed) {
+    fn delete(&self, feed: Feed) {
         let action = AsyncTask::stop(feed.id);
         let result = self.sender.lock().unwrap().send(action);
 

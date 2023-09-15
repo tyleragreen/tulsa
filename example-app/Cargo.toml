@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 tulsa = { path = "../tulsa" }
 axum = "0.6.18"
-axum-macros = "0.3.7"
 hyper = { version = "0.14.27", features = ["client"] }
 prost = "0.12"
 rand = "0.8.5"
@@ -16,6 +15,10 @@ serde_json = "1.0.103"
 tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
 tower = "0.4.13"
 ureq = "2.7.1"
+mime = { version = "0.3.17", optional = true }
 
 [build-dependencies]
 prost-build = "0.12"
+
+[features]
+use_dependencies = ["mime"]
