@@ -120,8 +120,10 @@ pub async fn recurring_fetch(feed: Feed) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    #[cfg(not(feature = "use_dependencies"))]
     use crate::deps::mockito;
+
+    use super::*;
     use std::collections::HashMap;
     use std::fs;
     use std::io::Read;
@@ -136,7 +138,7 @@ mod tests {
         file.read_to_end(&mut buffer)
             .expect("Failed to read the file");
 
-        let server = mockito::Server::new();
+        let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/gtfs")
             .with_status(200)
