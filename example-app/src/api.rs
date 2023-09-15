@@ -136,7 +136,9 @@ async fn list_handler(state: State<AppState>) -> impl IntoResponse {
 
 #[cfg(test)]
 mod api_tests {
+    #[cfg(not(feature = "use_dependencies"))]
     use crate::deps::mime;
+
     use crate::fetcher::Feed;
     use crate::scheduler_interface::{SchedulerInterface, TaskSender};
     use tulsa::AsyncTask;

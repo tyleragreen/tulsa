@@ -14,9 +14,13 @@ serde_json = "1.0.103"
 tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
 tower = "0.4.13"
 ureq = "2.7.1"
+mime = { version = "0.3.17", optional = true }
 
 [build-dependencies]
 prost-build = "0.12"
 
 [dev-dependencies]
 mockito = "1.1.0"
+
+[features]
+use_dependencies = ["mime"]
