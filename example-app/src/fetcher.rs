@@ -120,6 +120,9 @@ pub async fn recurring_fetch(feed: Feed) {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "use_dependencies"))]
+    use crate::deps::mockito;
+
     use super::*;
     use std::collections::HashMap;
     use std::fs;

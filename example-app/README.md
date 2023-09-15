@@ -28,6 +28,10 @@ axum::Server::bind(&address)
 cargo test
 cargo run
 ```
+These commands include a few (and hopefully growing number of) re-implemented library crates. I challenged myself to maintain the same interface and learn how these libraries work. To run with the original dependencies, this works.
+```
+cargo test --features "use_dependencies"
+```
 
 ## Sample Feed
 ```

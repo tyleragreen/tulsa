@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use tokio::runtime::Builder;
 
 use gtfs_realtime_rust::api;
-use gtfs_realtime_rust::scheduler::{build, Mode};
+use gtfs_realtime_rust::scheduler_interface::{build, Mode};
 
 fn main() {
     let address = SocketAddr::from(([0, 0, 0, 0], 3000));
