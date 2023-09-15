@@ -26,6 +26,7 @@ mime = { version = "0.3.17", optional = true }
 mockito = { version = "1.1.0", optional = true }
 
 [build-dependencies]
+prost-build = { version = "0.11", optional = true }
 prost = "0.12"
 petgraph = "0.6.3" # for prost_build
 prost-types = "0.12" # for prost_build
@@ -36,4 +37,4 @@ heck = "0.4.1" # for prost_build
 regex = "1.9.3" # for prost_build
 
 [features]
-use_dependencies = [ "mime", "mockito" ]
+use_dependencies = [ "mime", "mockito", "prost-build" ]
