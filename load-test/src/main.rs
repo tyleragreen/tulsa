@@ -2,12 +2,11 @@ use std::sync::mpsc;
 use std::time::Duration;
 use std::thread;
 use tokio::time::interval;
-use tulsa::scheduler;
-use tulsa::model::{SyncTask, AsyncTask};
+use tulsa::{AsyncTask, Scheduler, SyncTask};
 
 fn run_async() {
     let (sender, receiver) = mpsc::channel();
-    scheduler::init_async(receiver);
+    Scheduler::<AsyncTask>::new(receiver).run();
 
     for i in 1..10000 {
         let task = AsyncTask::new(i, async {
@@ -30,7 +29,7 @@ fn run_async() {
 
 fn run_sync() {
     let (sender, receiver) = mpsc::channel();
-    scheduler::init_sync(receiver);
+    Scheduler::<SyncTask>::new(receiver).run();
 
     for i in 1..10000 {
         let task = SyncTask::new(i, Duration::from_millis(10), || {});
