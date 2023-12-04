@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 tulsa = { path = "../tulsa" }
-axum = "0.6.18"
+axum = "0.7.2"
 hyper = { version = "0.14.27", features = ["client"] }
 prost = "0.12"
 rand = "0.8.5"
