@@ -1,6 +1,6 @@
 use hyper::StatusCode;
 use hyper::Request;
-use axum::body::Body;
+use hyper::body::Incoming;
 use rand;
 use std::sync::{Arc, RwLock};
 
@@ -83,7 +83,7 @@ impl Mock {
         }
     }
 
-    pub fn matches(&self, request: &Request<Body>) -> bool {
+    pub fn matches(&self, request: &Request<Incoming>) -> bool {
         let method = request.method().to_string();
         let path = request.uri().path().to_string();
 
