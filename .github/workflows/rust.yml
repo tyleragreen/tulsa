@@ -24,5 +24,7 @@ jobs:
       run: cd tulsa && cargo test --verbose
     - name: Build example-app
       run: cd example-app && cargo build --verbose
-    - name: Test example-app
+    - name: Test example-app with custom libs
       run: cd example-app && cargo test --verbose
+    - name: Test example-app with third-party libs
+      run: cd example-app && cargo test --features use_dependencies --verbose
