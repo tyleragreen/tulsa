@@ -1,5 +1,6 @@
 use hyper::StatusCode;
-use hyper::{Body, Request};
+use hyper::Request;
+use axum::body::Body;
 use rand;
 use std::sync::{Arc, RwLock};
 

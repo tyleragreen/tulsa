@@ -1,6 +1,7 @@
 use hyper::server::conn::Http;
 use hyper::service::service_fn;
-use hyper::{Body, Request, Response as HyperResponse};
+use hyper::{Request, Response as HyperResponse};
+use axum::body::Body;
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 use std::thread;
