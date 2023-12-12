@@ -1,4 +1,4 @@
-use hyper::server::conn::Http;
+use hyper::server::conn::http1::Builder;
 use hyper::service::service_fn;
 use hyper::{Request, Response as HyperResponse};
 use axum::body::Body;
@@ -36,14 +36,13 @@ impl Server {
                 while let Ok((stream, _)) = listener.accept().await {
                     let state_c = state_b.clone();
                     spawn(async move {
-                        let _ = Http::new()
+                        let _ = Builder::new()
                             .serve_connection(
                                 stream,
                                 service_fn(move |request: Request<Body>| {
                                     handle_request(request, state_c.clone())
                                 }),
-                            )
-                            .await;
+                            );
                     });
                 }
             });

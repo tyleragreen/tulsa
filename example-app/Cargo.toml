@@ -6,13 +6,13 @@ edition = "2021"
 [dependencies]
 tulsa = { path = "../tulsa" }
 axum = "0.7.2"
-hyper = { version = "1.0.1", features = ["client"] }
+hyper = { version = "1.0.1", features = ["client", "server"] }
 prost = "0.12"
 rand = "0.8.5"
 reqwest = { version = "0.11.18", features = ["json", "blocking"] }
 serde = { version = "1.0.171", features = ["derive"] }
 serde_json = "1.0.103"
-tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tower = "0.4.13"
 ureq = "2.7.1"
 petgraph = "0.6.3" # for prost_build
