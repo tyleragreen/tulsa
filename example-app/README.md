@@ -10,17 +10,11 @@ use gtfs_realtime_rust::scheduler::{build, Mode};
 
 # using coroutine scheduling
 let interface = build(Mode::Async);
-axum::Server::bind(&address)
-    .serve(api::app(interface).into_make_service())
-    .await
-    .unwrap();
+axum::serve(listener, router).await.unwrap();
 
 # using thread scheduling
 let interface = build(Mode::Sync);
-axum::Server::bind(&address)
-    .serve(api::app(interface).into_make_service())
-    .await
-    .unwrap();
+axum::serve(listener, router).await.unwrap();
 ```
 
 ## Running Locally
