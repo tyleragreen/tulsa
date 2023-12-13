@@ -141,6 +141,7 @@ mod api_tests {
 
     use crate::fetcher::Feed;
     use crate::scheduler_interface::{SchedulerInterface, TaskSender};
+    use tokio::net::TcpListener;
     use tulsa::AsyncTask;
 
     use super::*;
@@ -148,6 +149,7 @@ mod api_tests {
         body::Body,
         http::{self, Request, StatusCode},
     };
+    use std::net::SocketAddr;
     use std::sync::mpsc::SendError;
     use std::sync::Mutex;
     use tower::ServiceExt; // for `oneshot`
@@ -193,7 +195,7 @@ mod api_tests {
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(sender.lock().unwrap().count(), 0);
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         assert_eq!(&body[..], b"{\"status\":\"OK\"}");
     }
 
@@ -213,7 +215,7 @@ mod api_tests {
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         assert_eq!(body.len(), 0);
 
         let sender = Arc::new(Mutex::new(MockSender::new()));
@@ -230,7 +232,7 @@ mod api_tests {
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         assert_eq!(body.len(), 0);
     }
 
@@ -303,7 +305,7 @@ mod api_tests {
         assert_eq!(response.status(), StatusCode::CREATED);
         assert_eq!(sender.lock().unwrap().count(), 1);
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let f: Feed = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(f.id, 1);
@@ -315,7 +317,6 @@ mod api_tests {
 
     #[tokio::test]
     async fn full_api_flow() {
-        let addr: &str = "0.0.0.0:3000";
         let input = CreateFeed {
             name: "Name".to_string(),
             url: "http".to_string(),
@@ -331,90 +332,68 @@ mod api_tests {
 
         let sender = Arc::new(Mutex::new(MockSender::new()));
         let interface = Arc::new(SchedulerInterface::new(sender));
+        let address = SocketAddr::from(([0, 0, 0, 0], 3000));
         tokio::spawn(async move {
-            axum::Server::bind(&addr.parse().unwrap())
-                .serve(app(interface).into_make_service())
-                .await
-                .unwrap();
+            let listener = TcpListener::bind(address).await.unwrap();
+            let router = app(interface).into_make_service();
+            axum::serve(listener, router).await.unwrap();
         });
 
-        let client = hyper::Client::new();
-
+        let client = reqwest::Client::new();
         let response = client
-            .request(
-                Request::builder()
-                    .uri(format!("http://localhost:3000/feed"))
-                    .body(hyper::Body::empty())
-                    .unwrap(),
-            )
+            .get(format!("http://localhost:3000/feed"))
+            .send()
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status().as_u16(), StatusCode::OK.as_u16());
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = response.bytes().await.unwrap();
         let f: Vec<Feed> = serde_json::from_slice(&body).unwrap();
         assert_eq!(f.len(), 0);
         assert_eq!(&body[..], b"[]");
 
         let response = client
-            .request(
-                Request::builder()
-                    .method(http::Method::POST)
-                    .uri("http://localhost:3000/feed")
-                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                    .body(Body::from(input))
-                    .unwrap(),
-            )
+            .post(format!("http://localhost:3000/feed"))
+            .header(http::header::CONTENT_TYPE.as_str(), mime::APPLICATION_JSON.as_ref())
+            .json(&serde_json::json!(input))
+            .send()
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::CREATED);
+        assert_eq!(response.status().as_u16(), StatusCode::CREATED.as_u16());
 
         let response = client
-            .request(
-                Request::builder()
-                    .uri(format!("http://localhost:3000/feed"))
-                    .body(hyper::Body::empty())
-                    .unwrap(),
-            )
+            .get(format!("http://localhost:3000/feed"))
+            .send()
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status().as_u16(), StatusCode::OK.as_u16());
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = response.bytes().await.unwrap();
         let f: Vec<Feed> = serde_json::from_slice(&body).unwrap();
         assert_eq!(f.len(), 1);
 
         let response = client
-            .request(
-                Request::builder()
-                    .method(http::Method::PUT)
-                    .uri("http://localhost:3000/feed/1")
-                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                    .body(Body::from(input_new))
-                    .unwrap(),
-            )
+            .put(format!("http://localhost:3000/feed/1"))
+            .header(http::header::CONTENT_TYPE.as_str(), mime::APPLICATION_JSON.as_ref())
+            .json(&serde_json::json!(input_new))
+            .send()
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status().as_u16(), StatusCode::OK.as_u16());
 
         let response = client
-            .request(
-                Request::builder()
-                    .method(http::Method::GET)
-                    .uri("http://localhost:3000/feed/1")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .get(format!("http://localhost:3000/feed/1"))
+            .send()
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status().as_u16(), StatusCode::OK.as_u16());
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = response.bytes().await.unwrap();
         let f: Feed = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(f.id, 1);
@@ -422,36 +401,27 @@ mod api_tests {
         assert_eq!(f.url, "http");
         assert_eq!(f.frequency, 20);
 
+
         let response = client
-            .request(
-                Request::builder()
-                    .method(http::Method::DELETE)
-                    .uri("http://localhost:3000/feed/1")
-                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .delete(format!("http://localhost:3000/feed/1"))
+            .send()
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        assert_eq!(response.status().as_u16(), StatusCode::NO_CONTENT.as_u16());
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = response.bytes().await.unwrap();
         assert_eq!(body.len(), 0);
 
         let response = client
-            .request(
-                Request::builder()
-                    .uri(format!("http://localhost:3000/feed"))
-                    .body(hyper::Body::empty())
-                    .unwrap(),
-            )
+            .get(format!("http://localhost:3000/feed"))
+            .send()
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status().as_u16(), StatusCode::OK.as_u16());
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = response.bytes().await.unwrap();
         let f: Vec<Feed> = serde_json::from_slice(&body).unwrap();
         assert_eq!(f.len(), 0);
         assert_eq!(&body[..], b"[]");

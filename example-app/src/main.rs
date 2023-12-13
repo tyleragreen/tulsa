@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use tokio::net::TcpListener;
 use tokio::runtime::Builder;
 
 use gtfs_realtime_rust::api;
@@ -22,9 +23,8 @@ fn main() {
         .unwrap();
 
     runtime.block_on(async {
-        axum::Server::bind(&address)
-            .serve(api::app(interface).into_make_service())
-            .await
-            .unwrap();
+        let listener = TcpListener::bind(address).await.unwrap();
+        let router = api::app(interface).into_make_service();
+        axum::serve(listener, router).await.unwrap();
     });
 }

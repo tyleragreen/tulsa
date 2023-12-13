@@ -1,6 +1,10 @@
-use hyper::server::conn::Http;
+use http_body_util::Full;
+use hyper::body::Bytes;
+use hyper::body::Incoming;
+use hyper::server::conn::http1::Builder;
 use hyper::service::service_fn;
-use hyper::{Body, Request, Response as HyperResponse};
+use hyper::{Request, Response as HyperResponse};
+use hyper_util::rt::TokioIo;
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -35,10 +39,11 @@ impl Server {
                 while let Ok((stream, _)) = listener.accept().await {
                     let state_c = state_b.clone();
                     spawn(async move {
-                        let _ = Http::new()
+                        let io = TokioIo::new(stream);
+                        let _ = Builder::new()
                             .serve_connection(
-                                stream,
-                                service_fn(move |request: Request<Body>| {
+                                io,
+                                service_fn(move |request: Request<Incoming>| {
                                     handle_request(request, state_c.clone())
                                 }),
                             )
@@ -61,9 +66,9 @@ impl Server {
 }
 
 async fn handle_request(
-    request: Request<Body>,
+    request: Request<Incoming>,
     state: Arc<RwLock<State>>,
-) -> Result<HyperResponse<Body>, MockError> {
+) -> Result<HyperResponse<Full<Bytes>>, MockError> {
     let state_b = state.clone();
     let mut state = state_b.write().unwrap();
     let mut matching: Vec<&mut Mock> = vec![];
@@ -77,7 +82,7 @@ async fn handle_request(
 
     if let Some(mock) = mock {
         mock.inner.num_called += 1;
-        let response = HyperResponse::new(Body::from(mock.inner.response.body.clone()));
+        let response = HyperResponse::new(Full::new(Bytes::from(mock.inner.response.body.clone())));
         Ok(response)
     } else {
         panic!("No matching mock found");
