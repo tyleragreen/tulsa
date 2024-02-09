@@ -2,6 +2,8 @@
 mod tests {
     use reqwest::blocking::Client;
     use serde_json::json;
+    use tokio::net::TcpListener;
+    use std::net::SocketAddr;
     use std::thread;
     use std::time::Duration;
     use tokio::runtime::Builder;
@@ -15,12 +17,11 @@ mod tests {
         thread::spawn(move || {
             let runtime = Builder::new_multi_thread().enable_io().build().unwrap();
 
-            let address: &str = "0.0.0.0:3000";
+            let address = SocketAddr::from(([0, 0, 0, 0], 3000));
             runtime.block_on(async {
-                axum::Server::bind(&address.parse().unwrap())
-                    .serve(api::app(interface).into_make_service())
-                    .await
-                    .unwrap();
+                let listener = TcpListener::bind(address).await.unwrap();
+                let router = api::app(interface).into_make_service();
+                axum::serve(listener, router).await.unwrap();
             });
         });
 

@@ -5,25 +5,27 @@ edition = "2021"
 
 [dependencies]
 tulsa = { path = "../tulsa" }
-axum = "0.6.18"
-hyper = { version = "0.14.27", features = ["client"] }
+axum = "0.7.2"
+hyper = { version = "1.0.1", features = ["client", "server"] }
 prost = "0.12"
 rand = "0.8.5"
 reqwest = { version = "0.11.18", features = ["json", "blocking"] }
 serde = { version = "1.0.171", features = ["derive"] }
 serde_json = "1.0.103"
-tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
 tower = "0.4.13"
 ureq = "2.7.1"
 petgraph = "0.6.3" # for prost_build
 prost-types = "0.12" # for prost_build
 itertools = "0.12.0" # for prost_build
-multimap = "0.9.0" # for prost_build
+multimap = "0.10.0" # for prost_build
 lazy_static = "1.4.0" # for prost_build
 heck = "0.4.1" # for prost_build
 regex = "1.9.3" # for prost_build
 mime = { version = "0.3.17", optional = true }
 mockito = { version = "1.1.0", optional = true }
+hyper-util = { version = "0.1.1", features = ["full"] }
+http-body-util = "0.1.0"
 
 [build-dependencies]
 prost-build = { version = "0.12", optional = true }
@@ -31,7 +33,7 @@ prost = "0.12"
 petgraph = "0.6.3" # for prost_build
 prost-types = "0.12" # for prost_build
 itertools = "0.12.0" # for prost_build
-multimap = "0.9.0" # for prost_build
+multimap = "0.10.0" # for prost_build
 lazy_static = "1.4.0" # for prost_build
 heck = "0.4.1" # for prost_build
 regex = "1.9.3" # for prost_build
