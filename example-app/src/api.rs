@@ -40,7 +40,7 @@ struct Status {
     status: String,
 }
 
-async fn status_handler() -> Json<Status> {
+async fn status_handler() -> impl IntoResponse {
     Json(Status {
         status: "OK".to_string(),
     })
@@ -57,7 +57,7 @@ struct CreateFeed {
 async fn post_handler(
     state: State<AppState>,
     Json(payload): Json<CreateFeed>,
-) -> (StatusCode, Json<Feed>) {
+) -> impl IntoResponse {
     let id = *(state.feed_id.read().unwrap());
     let feed = Feed {
         id,
