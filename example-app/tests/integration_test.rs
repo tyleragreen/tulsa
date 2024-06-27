@@ -2,10 +2,10 @@
 mod tests {
     use reqwest::blocking::Client;
     use serde_json::json;
-    use tokio::net::TcpListener;
     use std::net::SocketAddr;
     use std::thread;
     use std::time::Duration;
+    use tokio::net::TcpListener;
     use tokio::runtime::Builder;
 
     use gtfs_realtime_rust::api;
