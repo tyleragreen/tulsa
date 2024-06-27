@@ -17,7 +17,7 @@ tower = "0.4.13"
 ureq = "2.7.1"
 petgraph = "0.6.3" # for prost_build
 prost-types = "0.12" # for prost_build
-itertools = "0.12.0" # for prost_build
+itertools = "0.13.0" # for prost_build
 multimap = "0.10.0" # for prost_build
 lazy_static = "1.4.0" # for prost_build
 heck = "0.4.1" # for prost_build
@@ -32,7 +32,7 @@ prost-build = { version = "0.12", optional = true }
 prost = "0.12"
 petgraph = "0.6.3" # for prost_build
 prost-types = "0.12" # for prost_build
-itertools = "0.12.0" # for prost_build
+itertools = "0.13.0" # for prost_build
 multimap = "0.10.0" # for prost_build
 lazy_static = "1.4.0" # for prost_build
 heck = "0.4.1" # for prost_build
