@@ -20,7 +20,7 @@ prost-types = "0.12" # for prost_build
 itertools = "0.12.0" # for prost_build
 multimap = "0.10.0" # for prost_build
 lazy_static = "1.4.0" # for prost_build
-heck = "0.4.1" # for prost_build
+heck = "0.5.0" # for prost_build
 regex = "1.9.3" # for prost_build
 mime = { version = "0.3.17", optional = true }
 mockito = { version = "1.1.0", optional = true }
@@ -35,7 +35,7 @@ prost-types = "0.12" # for prost_build
 itertools = "0.12.0" # for prost_build
 multimap = "0.10.0" # for prost_build
 lazy_static = "1.4.0" # for prost_build
-heck = "0.4.1" # for prost_build
+heck = "0.5.0" # for prost_build
 regex = "1.9.3" # for prost_build
 
 [features]
