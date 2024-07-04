@@ -8,30 +8,8 @@ use ureq;
 mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
 }
-use std::collections::HashMap;
 
-use reqwest::header::{HeaderMap, HeaderName};
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Feed {
-    pub id: usize,
-    pub name: String,
-    pub url: String,
-    pub frequency: u64,
-    pub headers: HashMap<String, String>,
-}
-
-impl Feed {
-    pub fn to_header_map(&self) -> HeaderMap {
-        let mut headers = HeaderMap::new();
-        for (key, value) in self.headers.iter() {
-            let new_key: HeaderName = key.parse().unwrap();
-            headers.insert(new_key, value.parse().unwrap());
-        }
-        headers
-    }
-}
+use crate::models::Feed;
 
 async fn fetch(feed: &Feed) -> usize {
     println!("Fetching {}", feed.name);

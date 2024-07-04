@@ -1,5 +1,6 @@
 pub mod api;
 pub mod fetcher;
+pub mod models;
 pub mod scheduler_interface;
 
 // The deps module is an effort to re-implement my third-party dependencies as

@@ -5,11 +5,10 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use crate::fetcher::Feed;
+use crate::models::{CreateFeed, Feed, Status};
 use crate::scheduler_interface::ToScheduler;
 
 #[derive(Clone)]
@@ -35,29 +34,8 @@ pub fn app(scheduler_interface: Arc<dyn ToScheduler + Send + Sync>) -> Router {
         .with_state(state)
 }
 
-#[derive(Serialize)]
-struct Status {
-    status: String,
-}
-
-impl Status {
-    fn new(status: &str) -> Self {
-        Self {
-            status: status.to_string(),
-        }
-    }
-}
-
 async fn status_handler() -> impl IntoResponse {
     Json(Status::new("OK"))
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-struct CreateFeed {
-    name: String,
-    url: String,
-    frequency: u64,
-    headers: HashMap<String, String>,
 }
 
 async fn post_handler(
@@ -68,8 +46,11 @@ async fn post_handler(
         frequency,
         headers,
     }): Json<CreateFeed>,
-) -> impl IntoResponse {
-    let id = *(state.next_feed_id.read().unwrap());
+) -> Result<impl IntoResponse, StatusCode> {
+    let id = *(state
+        .next_feed_id
+        .read()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?);
     let feed = Feed {
         id,
         name,
@@ -78,24 +59,37 @@ async fn post_handler(
         headers,
     };
 
-    *(state.next_feed_id.write().unwrap()) += 1;
-    state.db.write().unwrap().insert(id, feed.clone());
+    *(state
+        .next_feed_id
+        .write()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?) += 1;
+    state
+        .db
+        .write()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .insert(id, feed.clone());
     state.scheduler_interface.create(feed.clone());
 
-    (StatusCode::CREATED, Json(feed))
+    Ok((StatusCode::CREATED, Json(feed)))
 }
 
-async fn get_handler(path: Path<String>, state: State<AppState>) -> impl IntoResponse {
-    let id = path.parse::<usize>().map_err(|_| StatusCode::BAD_REQUEST)?;
+async fn get_handler(
+    Path(id): Path<usize>,
+    state: State<AppState>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let feed = state
+        .db
+        .read()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .get(&id)
+        .cloned()
+        .ok_or(StatusCode::NOT_FOUND)?;
 
-    match state.db.read().unwrap().get(&id).cloned() {
-        Some(feed) => Ok(Json(feed)),
-        None => Err(StatusCode::NOT_FOUND),
-    }
+    Ok(Json(feed))
 }
 
 async fn put_handler(
-    path: Path<String>,
+    Path(id): Path<usize>,
     state: State<AppState>,
     Json(CreateFeed {
         name,
@@ -104,8 +98,13 @@ async fn put_handler(
         headers,
     }): Json<CreateFeed>,
 ) -> impl IntoResponse {
-    let id = path.parse::<usize>().map_err(|_| StatusCode::BAD_REQUEST)?;
-    if state.db.read().unwrap().get(&id).is_none() {
+    if state
+        .db
+        .read()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .get(&id)
+        .is_none()
+    {
         return Err(StatusCode::NOT_FOUND);
     }
 
@@ -117,28 +116,47 @@ async fn put_handler(
         headers,
     };
 
-    state.db.write().unwrap().insert(id, feed.clone());
+    state
+        .db
+        .write()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .insert(id, feed.clone());
     state.scheduler_interface.update(feed.clone());
 
     Ok(Json(feed))
 }
 
-async fn delete_handler(path: Path<String>, state: State<AppState>) -> impl IntoResponse {
-    let id = path.parse::<usize>().map_err(|_| StatusCode::BAD_REQUEST)?;
-    let feed = match state.db.read().unwrap().get(&id).cloned() {
-        Some(f) => f,
-        None => return Err(StatusCode::NOT_FOUND),
-    };
+async fn delete_handler(
+    Path(id): Path<usize>,
+    state: State<AppState>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let feed = state
+        .db
+        .read()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .get(&id)
+        .cloned()
+        .ok_or(StatusCode::NOT_FOUND)?;
 
-    state.db.write().unwrap().remove(&feed.id);
+    state
+        .db
+        .write()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .remove(&feed.id);
     state.scheduler_interface.delete(feed);
 
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn list_handler(state: State<AppState>) -> impl IntoResponse {
-    let feeds: Vec<Feed> = state.db.read().unwrap().values().cloned().collect();
-    Json(feeds)
+async fn list_handler(state: State<AppState>) -> Result<impl IntoResponse, StatusCode> {
+    let feeds: Vec<Feed> = state
+        .db
+        .read()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .values()
+        .cloned()
+        .collect();
+    Ok(Json(feeds))
 }
 
 #[cfg(test)]
@@ -146,7 +164,6 @@ mod api_tests {
     #[cfg(not(feature = "use_dependencies"))]
     use crate::deps::mime;
 
-    use crate::fetcher::Feed;
     use crate::scheduler_interface::{SchedulerInterface, TaskSender};
     use tokio::net::TcpListener;
     use tulsa::AsyncTask;
@@ -227,7 +244,7 @@ mod api_tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        assert_eq!(body.len(), 0);
+        assert_eq!(&body[..], b"Invalid URL: Cannot parse `\"abc\"` to a `u64`");
 
         let sender = Arc::new(Mutex::new(MockSender::new()));
         let interface = Arc::new(SchedulerInterface::new(sender));
@@ -246,7 +263,7 @@ mod api_tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        assert_eq!(body.len(), 0);
+        assert_eq!(&body[..], b"Invalid URL: Cannot parse `\"-1\"` to a `u64`");
     }
 
     #[tokio::test]

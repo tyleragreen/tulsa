@@ -3,7 +3,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tulsa::{AsyncTask, Scheduler, SyncTask};
 
-use crate::fetcher::{fetch_sync, recurring_fetch, Feed};
+use crate::fetcher::{fetch_sync, recurring_fetch};
+use crate::models::Feed;
 
 pub enum Mode {
     Sync,
