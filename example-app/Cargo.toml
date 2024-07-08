@@ -7,7 +7,7 @@ edition = "2021"
 tulsa = { path = "../tulsa" }
 axum = "0.7.2"
 hyper = { version = "1.0.1", features = ["client", "server"] }
-prost = "0.12"
+prost = "0.13"
 rand = "0.8.5"
 reqwest = { version = "0.12.5", features = ["json", "blocking"] }
 serde = { version = "1.0.171", features = ["derive"] }
@@ -29,7 +29,7 @@ http-body-util = "0.1.0"
 
 [build-dependencies]
 prost-build = { version = "0.12", optional = true }
-prost = "0.12"
+prost = "0.13"
 petgraph = "0.6.3" # for prost_build
 prost-types = "0.12" # for prost_build
 itertools = "0.13.0" # for prost_build
