@@ -2,10 +2,13 @@ use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio::runtime::Builder;
 
-use gtfs_realtime_rust::api;
-use gtfs_realtime_rust::scheduler_interface::{build, Mode};
+use app::api;
+use app::scheduler_interface::{build, Mode};
 
 fn main() {
+    // Initialize tracing subscriber for logging
+    tracing_subscriber::fmt::init();
+
     let address = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("Starting server on {}.", address);
 
@@ -13,6 +16,7 @@ fn main() {
 
     // We use a runtime::Builder to specify the number of threads and
     // their name.
+    //
     // If we didn't want these customizations, we could just use #[tokio:main]
     // to launch a runtime automatically.
     let runtime = Builder::new_multi_thread()

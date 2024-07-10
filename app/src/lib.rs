@@ -1,5 +1,6 @@
 pub mod api;
 pub mod fetcher;
+pub mod middleware;
 pub mod models;
 pub mod scheduler_interface;
 

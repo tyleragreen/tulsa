@@ -1,5 +1,5 @@
 [package]
-name = "gtfs_realtime_rust"
+name = "app"
 version = "0.1.0"
 edition = "2021"
 
@@ -26,6 +26,8 @@ mime = { version = "0.3.17", optional = true }
 mockito = { version = "1.1.0", optional = true }
 hyper-util = { version = "0.1.1", features = ["full"] }
 http-body-util = "0.1.0"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
 
 [build-dependencies]
 prost-build = { version = "0.12", optional = true }

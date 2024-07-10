@@ -1,6 +1,7 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
+    middleware::from_fn,
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
@@ -8,6 +9,7 @@ use axum::{
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use crate::middleware::log_request;
 use crate::models::{CreateFeed, Feed, Status};
 use crate::scheduler_interface::ToScheduler;
 
@@ -24,6 +26,7 @@ pub fn app(scheduler_interface: Arc<dyn ToScheduler + Send + Sync>) -> Router {
         db: Arc::new(RwLock::new(HashMap::new())),
         scheduler_interface,
     };
+
     Router::new()
         .route("/", get(status_handler))
         .route(
@@ -31,6 +34,7 @@ pub fn app(scheduler_interface: Arc<dyn ToScheduler + Send + Sync>) -> Router {
             get(get_handler).put(put_handler).delete(delete_handler),
         )
         .route("/feed", post(post_handler).get(list_handler))
+        .layer(from_fn(log_request))
         .with_state(state)
 }
 
