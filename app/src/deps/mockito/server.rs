@@ -1,20 +1,20 @@
 use http_body_util::Full;
-use hyper::body::Bytes;
-use hyper::body::Incoming;
-use hyper::server::conn::http1::Builder;
-use hyper::service::service_fn;
-use hyper::{Request, Response as HyperResponse};
+use hyper::{
+    body::{Bytes, Incoming},
+    server::conn::http1::Builder,
+    service::service_fn,
+    Request, Response as HyperResponse,
+};
 use hyper_util::rt::TokioIo;
-use std::net::SocketAddr;
-use std::sync::{Arc, RwLock};
-use std::thread;
-use tokio::net::TcpListener;
-use tokio::runtime;
-use tokio::task::spawn;
+use std::{
+    future::Future,
+    net::SocketAddr,
+    sync::{Arc, RwLock},
+    thread,
+};
+use tokio::{net::TcpListener, runtime, task::spawn};
 
-use super::error::MockError;
-use super::mock::Mock;
-use super::state::State;
+use super::{error::MockError, mock::Mock, state::State};
 
 pub struct Server {
     address: SocketAddr,
@@ -22,6 +22,12 @@ pub struct Server {
 }
 
 impl Server {
+    /// Beginning in mockito 1.3.1, calling [`Server::new`] was no longer permitted from inside a
+    /// tokio runtime. We use a fake-async server here just to satisfy the interface.
+    pub async fn new_async() -> Server {
+        Self::new()
+    }
+
     pub fn new() -> Server {
         let address = SocketAddr::from(([127, 0, 0, 1], 5001));
         let state = Arc::new(RwLock::new(State::new()));
