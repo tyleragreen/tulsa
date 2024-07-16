@@ -1,10 +1,16 @@
-use std::sync::mpsc::{self, SendError, Sender};
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::{
+    sync::{
+        mpsc::{self, SendError, Sender},
+        Arc, Mutex,
+    },
+    time::Duration,
+};
 use tulsa::{AsyncTask, Scheduler, SyncTask};
 
-use crate::fetcher::{fetch_sync, recurring_fetch};
-use crate::models::Feed;
+use crate::{
+    fetcher::{fetch_sync, recurring_fetch},
+    models::Feed,
+};
 
 pub enum Mode {
     Sync,
