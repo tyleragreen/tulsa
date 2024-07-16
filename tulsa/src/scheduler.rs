@@ -1,10 +1,13 @@
-use std::sync::mpsc::Receiver;
-use std::sync::{Arc, Mutex};
-use std::thread::Builder as ThreadBuilder;
+use std::{
+    sync::{mpsc::Receiver, Arc, Mutex},
+    thread::Builder as ThreadBuilder,
+};
 
-use crate::async_scheduler::AsyncScheduler;
-use crate::model::{AsyncTask, SyncTask};
-use crate::thread_scheduler::ThreadScheduler;
+use crate::{
+    async_scheduler::AsyncScheduler,
+    model::{AsyncTask, SyncTask},
+    thread_scheduler::ThreadScheduler,
+};
 
 pub struct Scheduler<T> {
     receiver: Arc<Mutex<Receiver<T>>>,

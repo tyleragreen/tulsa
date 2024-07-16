@@ -1,8 +1,9 @@
-use std::pin::Pin;
-use std::sync::mpsc::Receiver;
-use std::sync::{Arc, Mutex};
-use std::thread::{sleep, Builder as ThreadBuilder, JoinHandle as ThreadJoinHandle};
-use std::time::Duration;
+use std::{
+    pin::Pin,
+    sync::{mpsc::Receiver, Arc, Mutex},
+    thread::{sleep, Builder as ThreadBuilder, JoinHandle as ThreadJoinHandle},
+    time::Duration,
+};
 
 use crate::model::{Operation, SyncTask};
 

@@ -1,12 +1,13 @@
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::fs::OpenOptions;
-    use std::io::prelude::*;
-    use std::process::Command;
-    use std::sync::{mpsc, Mutex};
-    use std::thread;
-    use std::time::Duration;
+    use std::{
+        fs::{File, OpenOptions},
+        io::prelude::*,
+        process::Command,
+        sync::{mpsc, Mutex},
+        thread,
+        time::Duration,
+    };
 
     use tulsa::{AsyncTask, Scheduler, SyncTask};
 
