@@ -6,12 +6,16 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 
-use crate::middleware::log_request;
-use crate::models::{CreateFeed, Feed, Status};
-use crate::scheduler_interface::ToScheduler;
+use crate::{
+    middleware::log_request,
+    models::{CreateFeed, Feed, Status},
+    scheduler_interface::ToScheduler,
+};
 
 #[derive(Clone)]
 struct AppState {

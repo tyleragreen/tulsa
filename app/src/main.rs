@@ -1,9 +1,10 @@
 use std::net::SocketAddr;
-use tokio::net::TcpListener;
-use tokio::runtime::Builder;
+use tokio::{net::TcpListener, runtime::Builder};
 
-use app::api;
-use app::scheduler_interface::{build, Mode};
+use app::{
+    api,
+    scheduler_interface::{build, Mode},
+};
 
 fn main() {
     // Initialize tracing subscriber for logging

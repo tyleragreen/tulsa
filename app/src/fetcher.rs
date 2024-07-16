@@ -1,9 +1,9 @@
-use crate::fetcher::transit::FeedMessage;
-use prost::bytes::Bytes;
-use prost::Message;
+use prost::{bytes::Bytes, Message};
 use reqwest::Client;
 use tokio::time::{Duration, Interval};
 use ureq;
+
+use crate::fetcher::transit::FeedMessage;
 
 mod transit {
     include!(concat!(env!("OUT_DIR"), "/transit_realtime.rs"));
