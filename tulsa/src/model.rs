@@ -1,6 +1,5 @@
 use std::{future::Future, pin::Pin, time::Duration};
 
-#[derive(Clone)]
 pub enum Operation {
     Create,
     Update,
