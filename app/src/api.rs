@@ -243,7 +243,7 @@ mod api_tests {
 
     #[tokio::test]
     async fn status() {
-        let sender = Arc::new(Mutex::new(MockSender::new()));
+        let sender = Arc::new(MockSender::new());
         let interface = Arc::new(SchedulerInterface::new(sender.clone()));
         let response = app(interface)
             .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
@@ -251,7 +251,7 @@ mod api_tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(sender.lock().unwrap().count(), 0);
+        assert_eq!(sender.count(), 0);
 
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
@@ -261,7 +261,7 @@ mod api_tests {
 
     #[tokio::test]
     async fn invalid() {
-        let sender = Arc::new(Mutex::new(MockSender::new()));
+        let sender = Arc::new(MockSender::new());
         let interface = Arc::new(SchedulerInterface::new(sender));
         let response = app(interface)
             .oneshot(
@@ -280,7 +280,7 @@ mod api_tests {
             .unwrap();
         assert_eq!(&body[..], b"Invalid URL: Cannot parse `\"abc\"` to a `u64`");
 
-        let sender = Arc::new(Mutex::new(MockSender::new()));
+        let sender = Arc::new(MockSender::new());
         let interface = Arc::new(SchedulerInterface::new(sender));
         let response = app(interface)
             .oneshot(
@@ -309,7 +309,7 @@ mod api_tests {
             frequency: 10,
             headers,
         };
-        let sender = Arc::new(Mutex::new(MockSender::new()));
+        let sender = Arc::new(MockSender::new());
         let interface = Arc::new(SchedulerInterface::new(sender));
         let response = app(interface)
             .oneshot(
@@ -325,7 +325,7 @@ mod api_tests {
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
-        let sender = Arc::new(Mutex::new(MockSender::new()));
+        let sender = Arc::new(MockSender::new());
         let interface = Arc::new(SchedulerInterface::new(sender));
         let response = app(interface)
             .oneshot(
@@ -351,8 +351,8 @@ mod api_tests {
             frequency: 10,
             headers,
         };
-        let sender = Arc::new(Mutex::new(MockSender::new()));
-        assert_eq!(sender.lock().unwrap().count(), 0);
+        let sender = Arc::new(MockSender::new());
+        assert_eq!(sender.count(), 0);
         let interface = Arc::new(SchedulerInterface::new(sender.clone()));
         let response = app(interface)
             .oneshot(
@@ -367,7 +367,7 @@ mod api_tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::CREATED);
-        assert_eq!(sender.lock().unwrap().count(), 1);
+        assert_eq!(sender.count(), 1);
 
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
@@ -396,7 +396,7 @@ mod api_tests {
             headers: HashMap::new(),
         };
 
-        let sender = Arc::new(Mutex::new(MockSender::new()));
+        let sender = Arc::new(MockSender::new());
         let interface = Arc::new(SchedulerInterface::new(sender));
         let address = SocketAddr::from(([0, 0, 0, 0], 3000));
         tokio::spawn(async move {

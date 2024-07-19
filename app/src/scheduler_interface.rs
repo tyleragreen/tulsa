@@ -2,7 +2,7 @@ use std::{
     marker::PhantomData,
     sync::{
         mpsc::{self, SendError, Sender},
-        Arc, Mutex,
+        Arc,
     },
     time::Duration,
 };
@@ -18,14 +18,14 @@ pub fn build() -> Arc<impl ToScheduler + Send + Sync + 'static> {
     {
         let (sender, receiver) = mpsc::channel();
         Scheduler::<AsyncTask>::new(receiver).run();
-        Arc::new(SchedulerInterface::new(Arc::new(Mutex::new(sender))))
+        Arc::new(SchedulerInterface::new(Arc::new(sender)))
     }
 
     #[cfg(not(feature = "async_mode"))]
     {
         let (sender, receiver) = mpsc::channel();
         Scheduler::<SyncTask>::new(receiver).run();
-        Arc::new(SchedulerInterface::new(Arc::new(Mutex::new(sender))))
+        Arc::new(SchedulerInterface::new(Arc::new(sender)))
     }
 }
 
@@ -58,7 +58,7 @@ where
     R: TaskSend<T> + Send + 'static,
     T: Task,
 {
-    sender: Arc<Mutex<R>>,
+    sender: Arc<R>,
     _marker: PhantomData<T>,
 }
 
@@ -80,7 +80,7 @@ where
     R: TaskSend<T> + Send + 'static,
     T: Task,
 {
-    pub fn new(sender: Arc<Mutex<R>>) -> Self {
+    pub fn new(sender: Arc<R>) -> Self {
         Self {
             sender,
             _marker: PhantomData,
@@ -96,7 +96,7 @@ where
         let action = SyncTask::new(feed.id, Duration::from_secs(feed.frequency), move || {
             fetch_sync(&feed);
         });
-        let result = self.sender.lock().unwrap().send(action);
+        let result = self.sender.send(action);
 
         if let Err(e) = result {
             println!("{}", e);
@@ -107,7 +107,7 @@ where
         let action = SyncTask::update(feed.id, Duration::from_secs(feed.frequency), move || {
             fetch_sync(&feed);
         });
-        let result = self.sender.lock().unwrap().send(action);
+        let result = self.sender.send(action);
 
         if let Err(e) = result {
             println!("{}", e);
@@ -116,7 +116,7 @@ where
 
     fn delete(&self, feed: Feed) {
         let action = SyncTask::stop(feed.id);
-        let result = self.sender.lock().unwrap().send(action);
+        let result = self.sender.send(action);
 
         if let Err(e) = result {
             println!("{}", e);
@@ -130,7 +130,7 @@ where
 {
     fn create(&self, feed: Feed) {
         let action = AsyncTask::new(feed.id, recurring_fetch(feed));
-        let result = self.sender.lock().unwrap().send(action);
+        let result = self.sender.send(action);
 
         if let Err(e) = result {
             println!("{}", e);
@@ -139,7 +139,7 @@ where
 
     fn update(&self, feed: Feed) {
         let action = AsyncTask::update(feed.id, recurring_fetch(feed));
-        let result = self.sender.lock().unwrap().send(action);
+        let result = self.sender.send(action);
 
         if let Err(e) = result {
             println!("{}", e);
@@ -148,7 +148,7 @@ where
 
     fn delete(&self, feed: Feed) {
         let action = AsyncTask::stop(feed.id);
-        let result = self.sender.lock().unwrap().send(action);
+        let result = self.sender.send(action);
 
         if let Err(e) = result {
             println!("{}", e);
