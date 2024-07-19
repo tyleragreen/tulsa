@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-use std::sync::mpsc::Receiver;
-use std::sync::{Arc, Mutex};
-use tokio::runtime::Builder as TokioBuilder;
-use tokio::task::JoinHandle as TaskJoinHandle;
+use std::{
+    collections::HashMap,
+    sync::{mpsc::Receiver, Arc, Mutex},
+};
+use tokio::{runtime::Builder as TokioBuilder, task::JoinHandle as TaskJoinHandle};
 
 use crate::model::{AsyncTask, Operation};
 

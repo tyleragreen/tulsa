@@ -42,3 +42,4 @@ regex = "1.9.3" # for prost_build
 
 [features]
 use_dependencies = [ "mime", "mockito", "prost-build" ]
+async_mode = []

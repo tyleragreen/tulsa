@@ -1,116 +1,123 @@
-use std::sync::mpsc::{self, SendError, Sender};
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use tulsa::{AsyncTask, Scheduler, SyncTask};
+use std::{
+    marker::PhantomData,
+    sync::{
+        mpsc::{self, SendError, Sender},
+        Arc,
+    },
+    time::Duration,
+};
+use tulsa::{AsyncTask, Scheduler, SyncTask, Task};
 
-use crate::fetcher::{fetch_sync, recurring_fetch};
-use crate::models::Feed;
+use crate::{
+    fetcher::{fetch_sync, recurring_fetch},
+    models::Feed,
+};
 
-pub enum Mode {
-    Sync,
-    Async,
-}
+/// Used to indicate an action by a `ToScheduler` was unsuccessful.
+pub struct AppSendError;
 
-pub fn build(mode: Mode) -> Arc<dyn ToScheduler + Send + Sync + 'static> {
-    match mode {
-        Mode::Async => {
-            let (sender, receiver) = mpsc::channel();
-            Scheduler::<AsyncTask>::new(receiver).run();
-            Arc::new(SchedulerInterface::new(Arc::new(Mutex::new(sender))))
-        }
-        Mode::Sync => {
-            let (sender, receiver) = mpsc::channel();
-            Scheduler::<SyncTask>::new(receiver).run();
-            Arc::new(SchedulerInterface::new(Arc::new(Mutex::new(sender))))
-        }
+pub fn build() -> Arc<impl ToScheduler + Send + Sync + 'static> {
+    #[cfg(feature = "async_mode")]
+    {
+        let (sender, receiver) = mpsc::channel();
+        Scheduler::<AsyncTask>::new(receiver).run();
+        Arc::new(SchedulerInterface::new(sender))
+    }
+
+    #[cfg(not(feature = "async_mode"))]
+    {
+        let (sender, receiver) = mpsc::channel();
+        Scheduler::<SyncTask>::new(receiver).run();
+        Arc::new(SchedulerInterface::new(sender))
     }
 }
 
-pub trait TaskSender<T> {
+/// An interface to send a `Task`. This allows clients to mock a `Sender` for unit tests.
+pub trait TaskSend<T>
+where
+    T: Task,
+{
     fn send(&self, task: T) -> Result<(), SendError<T>>;
 }
 
-/// The [Feed] will be sent to another thread, so we require ownership.
-pub trait ToScheduler {
-    fn create(&self, feed: Feed);
-    fn update(&self, feed: Feed);
-    fn delete(&self, feed: Feed);
-}
-
-pub struct SchedulerInterface<T> {
-    sender: Arc<Mutex<dyn TaskSender<T> + Send + 'static>>,
-}
-
-impl<T> TaskSender<T> for Sender<T> {
+impl<T> TaskSend<T> for Sender<T>
+where
+    T: Task,
+{
     fn send(&self, task: T) -> Result<(), SendError<T>> {
         self.send(task)
     }
 }
 
-impl<T> SchedulerInterface<T> {
-    pub fn new(sender: Arc<Mutex<dyn TaskSender<T> + Send + 'static>>) -> Self {
-        Self { sender }
+/// The [Feed] will be sent to another thread, so we require ownership.
+pub trait ToScheduler {
+    fn create(&self, feed: Feed) -> Result<(), AppSendError>;
+    fn update(&self, feed: Feed) -> Result<(), AppSendError>;
+    fn delete(&self, feed: Feed) -> Result<(), AppSendError>;
+}
+
+pub struct SchedulerInterface<R, T>
+where
+    R: TaskSend<T> + Send + 'static,
+    T: Task,
+{
+    sender: R,
+    _marker: PhantomData<T>,
+}
+
+impl<R, T> SchedulerInterface<R, T>
+where
+    R: TaskSend<T> + Send + 'static,
+    T: Task,
+{
+    pub fn new(sender: R) -> Self {
+        Self {
+            sender,
+            _marker: PhantomData,
+        }
     }
 }
 
-impl ToScheduler for SchedulerInterface<SyncTask> {
-    fn create(&self, feed: Feed) {
+impl<R> ToScheduler for SchedulerInterface<R, SyncTask>
+where
+    R: TaskSend<SyncTask> + Send + 'static,
+{
+    fn create(&self, feed: Feed) -> Result<(), AppSendError> {
         let action = SyncTask::new(feed.id, Duration::from_secs(feed.frequency), move || {
             fetch_sync(&feed);
         });
-        let result = self.sender.lock().unwrap().send(action);
-
-        if let Err(e) = result {
-            println!("{}", e);
-        }
+        self.sender.send(action).map_err(|_| AppSendError)
     }
 
-    fn update(&self, feed: Feed) {
+    fn update(&self, feed: Feed) -> Result<(), AppSendError> {
         let action = SyncTask::update(feed.id, Duration::from_secs(feed.frequency), move || {
             fetch_sync(&feed);
         });
-        let result = self.sender.lock().unwrap().send(action);
-
-        if let Err(e) = result {
-            println!("{}", e);
-        }
+        self.sender.send(action).map_err(|_| AppSendError)
     }
 
-    fn delete(&self, feed: Feed) {
+    fn delete(&self, feed: Feed) -> Result<(), AppSendError> {
         let action = SyncTask::stop(feed.id);
-        let result = self.sender.lock().unwrap().send(action);
-
-        if let Err(e) = result {
-            println!("{}", e);
-        }
+        self.sender.send(action).map_err(|_| AppSendError)
     }
 }
 
-impl ToScheduler for SchedulerInterface<AsyncTask> {
-    fn create(&self, feed: Feed) {
+impl<R> ToScheduler for SchedulerInterface<R, AsyncTask>
+where
+    R: TaskSend<AsyncTask> + Send + 'static,
+{
+    fn create(&self, feed: Feed) -> Result<(), AppSendError> {
         let action = AsyncTask::new(feed.id, recurring_fetch(feed));
-        let result = self.sender.lock().unwrap().send(action);
-
-        if let Err(e) = result {
-            println!("{}", e);
-        }
+        self.sender.send(action).map_err(|_| AppSendError)
     }
 
-    fn update(&self, feed: Feed) {
+    fn update(&self, feed: Feed) -> Result<(), AppSendError> {
         let action = AsyncTask::update(feed.id, recurring_fetch(feed));
-        let result = self.sender.lock().unwrap().send(action);
-
-        if let Err(e) = result {
-            println!("{}", e);
-        }
+        self.sender.send(action).map_err(|_| AppSendError)
     }
 
-    fn delete(&self, feed: Feed) {
+    fn delete(&self, feed: Feed) -> Result<(), AppSendError> {
         let action = AsyncTask::stop(feed.id);
-        let result = self.sender.lock().unwrap().send(action);
-
-        if let Err(e) = result {
-            println!("{}", e);
-        }
+        self.sender.send(action).map_err(|_| AppSendError)
     }
 }
