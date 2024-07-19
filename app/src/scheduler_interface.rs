@@ -50,7 +50,7 @@ where
 }
 
 /// The [Feed] will be sent to another thread, so we require ownership.
-pub trait ToScheduler: Clone {
+pub trait ToScheduler {
     fn create(&self, feed: Feed) -> Result<(), AppSendError>;
     fn update(&self, feed: Feed) -> Result<(), AppSendError>;
     fn delete(&self, feed: Feed) -> Result<(), AppSendError>;
@@ -63,19 +63,6 @@ where
 {
     sender: Arc<R>,
     _marker: PhantomData<T>,
-}
-
-impl<R, T> Clone for SchedulerInterface<R, T>
-where
-    R: TaskSend<T> + Send + 'static,
-    T: Task,
-{
-    fn clone(&self) -> Self {
-        Self {
-            sender: self.sender.clone(),
-            _marker: PhantomData,
-        }
-    }
 }
 
 impl<R, T> SchedulerInterface<R, T>

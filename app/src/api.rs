@@ -17,7 +17,6 @@ use crate::{
     scheduler_interface::ToScheduler,
 };
 
-#[derive(Clone)]
 struct AppState<T>
 where
     T: ToScheduler + Send + Sync + 'static,
@@ -25,6 +24,19 @@ where
     next_feed_id: Arc<RwLock<usize>>,
     db: Arc<RwLock<HashMap<usize, Feed>>>,
     scheduler_interface: Arc<T>,
+}
+
+impl<T> Clone for AppState<T>
+where
+    T: ToScheduler + Send + Sync + 'static,
+{
+    fn clone(&self) -> Self {
+        Self {
+            next_feed_id: self.next_feed_id.clone(),
+            db: self.db.clone(),
+            scheduler_interface: self.scheduler_interface.clone(),
+        }
+    }
 }
 
 pub fn app<T>(scheduler_interface: Arc<T>) -> Router
