@@ -22,5 +22,7 @@ jobs:
       run: cargo build --verbose
     - name: Test
       run: cargo test --verbose
-    - name: Test example-app with third-party libs
-      run: cd app && cargo test --features use_dependencies --verbose
+    - name: Test async mode
+      run: cargo test --features async_mode --verbose
+    - name: Test with third-party libs
+      run: cargo test --features use_dependencies --verbose
