@@ -234,6 +234,14 @@ mod api_tests {
         tasks: Arc<Mutex<Vec<T>>>,
     }
 
+    impl<T> Clone for MockSender<T> {
+        fn clone(&self) -> Self {
+            Self {
+                tasks: self.tasks.clone(),
+            }
+        }
+    }
+
     impl<T> TaskSend<T> for MockSender<T>
     where
         T: Task,
@@ -264,7 +272,7 @@ mod api_tests {
 
     #[tokio::test]
     async fn status() {
-        let sender = Arc::new(MockSender::new());
+        let sender = MockSender::new();
         let interface = Arc::new(SchedulerInterface::new(sender.clone()));
         let response = app(interface)
             .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
@@ -282,8 +290,8 @@ mod api_tests {
 
     #[tokio::test]
     async fn invalid() {
-        let sender = Arc::new(MockSender::new());
-        let interface = Arc::new(SchedulerInterface::new(sender));
+        let sender = MockSender::new();
+        let interface = Arc::new(SchedulerInterface::new(sender.clone()));
         let response = app(interface)
             .oneshot(
                 Request::builder()
@@ -301,8 +309,8 @@ mod api_tests {
             .unwrap();
         assert_eq!(&body[..], b"Invalid URL: Cannot parse `\"abc\"` to a `u64`");
 
-        let sender = Arc::new(MockSender::new());
-        let interface = Arc::new(SchedulerInterface::new(sender));
+        let sender = MockSender::new();
+        let interface = Arc::new(SchedulerInterface::new(sender.clone()));
         let response = app(interface)
             .oneshot(
                 Request::builder()
@@ -330,8 +338,8 @@ mod api_tests {
             frequency: 10,
             headers,
         };
-        let sender = Arc::new(MockSender::new());
-        let interface = Arc::new(SchedulerInterface::new(sender));
+        let sender = MockSender::new();
+        let interface = Arc::new(SchedulerInterface::new(sender.clone()));
         let response = app(interface)
             .oneshot(
                 Request::builder()
@@ -346,8 +354,8 @@ mod api_tests {
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
-        let sender = Arc::new(MockSender::new());
-        let interface = Arc::new(SchedulerInterface::new(sender));
+        let sender = MockSender::new();
+        let interface = Arc::new(SchedulerInterface::new(sender.clone()));
         let response = app(interface)
             .oneshot(
                 Request::builder()
@@ -372,7 +380,7 @@ mod api_tests {
             frequency: 10,
             headers,
         };
-        let sender = Arc::new(MockSender::new());
+        let sender = MockSender::new();
         assert_eq!(sender.count(), 0);
         let interface = Arc::new(SchedulerInterface::new(sender.clone()));
         let response = app(interface)
@@ -417,7 +425,7 @@ mod api_tests {
             headers: HashMap::new(),
         };
 
-        let sender = Arc::new(MockSender::new());
+        let sender = MockSender::new();
         let interface = Arc::new(SchedulerInterface::new(sender));
         let address = SocketAddr::from(([0, 0, 0, 0], 3000));
         tokio::spawn(async move {

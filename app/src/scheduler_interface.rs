@@ -21,14 +21,14 @@ pub fn build() -> Arc<impl ToScheduler + Send + Sync + 'static> {
     {
         let (sender, receiver) = mpsc::channel();
         Scheduler::<AsyncTask>::new(receiver).run();
-        Arc::new(SchedulerInterface::new(Arc::new(sender)))
+        Arc::new(SchedulerInterface::new(sender))
     }
 
     #[cfg(not(feature = "async_mode"))]
     {
         let (sender, receiver) = mpsc::channel();
         Scheduler::<SyncTask>::new(receiver).run();
-        Arc::new(SchedulerInterface::new(Arc::new(sender)))
+        Arc::new(SchedulerInterface::new(sender))
     }
 }
 
@@ -61,7 +61,7 @@ where
     R: TaskSend<T> + Send + 'static,
     T: Task,
 {
-    sender: Arc<R>,
+    sender: R,
     _marker: PhantomData<T>,
 }
 
@@ -70,7 +70,7 @@ where
     R: TaskSend<T> + Send + 'static,
     T: Task,
 {
-    pub fn new(sender: Arc<R>) -> Self {
+    pub fn new(sender: R) -> Self {
         Self {
             sender,
             _marker: PhantomData,
