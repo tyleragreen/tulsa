@@ -85,7 +85,11 @@ where
         .write()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .insert(id, feed.clone());
-    state.scheduler_interface.create(feed.clone());
+
+    state
+        .scheduler_interface
+        .create(feed.clone())
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok((StatusCode::CREATED, Json(feed)))
 }
@@ -144,7 +148,10 @@ where
         .write()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .insert(id, feed.clone());
-    state.scheduler_interface.update(feed.clone());
+    state
+        .scheduler_interface
+        .update(feed.clone())
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(feed))
 }
@@ -169,7 +176,10 @@ where
         .write()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .remove(&feed.id);
-    state.scheduler_interface.delete(feed);
+    state
+        .scheduler_interface
+        .delete(feed)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -190,9 +200,6 @@ where
 
 #[cfg(test)]
 mod api_tests {
-    #[cfg(not(feature = "use_dependencies"))]
-    use crate::deps::mime;
-
     use axum::{
         body::Body,
         http::{self, Request, StatusCode},
@@ -204,6 +211,8 @@ mod api_tests {
     use tokio::net::TcpListener;
     use tower::ServiceExt; // for `oneshot`
 
+    #[cfg(not(feature = "use_dependencies"))]
+    use crate::deps::mime;
     use crate::scheduler_interface::{SchedulerInterface, TaskSend};
     use tulsa::{AsyncTask, Task};
 

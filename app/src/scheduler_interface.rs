@@ -13,6 +13,9 @@ use crate::{
     models::Feed,
 };
 
+/// Used to indicate an action by a `ToScheduler` was unsuccessful.
+pub struct AppSendError;
+
 pub fn build() -> Arc<impl ToScheduler + Send + Sync + 'static> {
     #[cfg(feature = "async_mode")]
     {
@@ -48,9 +51,9 @@ where
 
 /// The [Feed] will be sent to another thread, so we require ownership.
 pub trait ToScheduler: Clone {
-    fn create(&self, feed: Feed);
-    fn update(&self, feed: Feed);
-    fn delete(&self, feed: Feed);
+    fn create(&self, feed: Feed) -> Result<(), AppSendError>;
+    fn update(&self, feed: Feed) -> Result<(), AppSendError>;
+    fn delete(&self, feed: Feed) -> Result<(), AppSendError>;
 }
 
 pub struct SchedulerInterface<R, T>
@@ -92,35 +95,23 @@ impl<R> ToScheduler for SchedulerInterface<R, SyncTask>
 where
     R: TaskSend<SyncTask> + Send + 'static,
 {
-    fn create(&self, feed: Feed) {
+    fn create(&self, feed: Feed) -> Result<(), AppSendError> {
         let action = SyncTask::new(feed.id, Duration::from_secs(feed.frequency), move || {
             fetch_sync(&feed);
         });
-        let result = self.sender.send(action);
-
-        if let Err(e) = result {
-            println!("{}", e);
-        }
+        self.sender.send(action).map_err(|_| AppSendError)
     }
 
-    fn update(&self, feed: Feed) {
+    fn update(&self, feed: Feed) -> Result<(), AppSendError> {
         let action = SyncTask::update(feed.id, Duration::from_secs(feed.frequency), move || {
             fetch_sync(&feed);
         });
-        let result = self.sender.send(action);
-
-        if let Err(e) = result {
-            println!("{}", e);
-        }
+        self.sender.send(action).map_err(|_| AppSendError)
     }
 
-    fn delete(&self, feed: Feed) {
+    fn delete(&self, feed: Feed) -> Result<(), AppSendError> {
         let action = SyncTask::stop(feed.id);
-        let result = self.sender.send(action);
-
-        if let Err(e) = result {
-            println!("{}", e);
-        }
+        self.sender.send(action).map_err(|_| AppSendError)
     }
 }
 
@@ -128,30 +119,18 @@ impl<R> ToScheduler for SchedulerInterface<R, AsyncTask>
 where
     R: TaskSend<AsyncTask> + Send + 'static,
 {
-    fn create(&self, feed: Feed) {
+    fn create(&self, feed: Feed) -> Result<(), AppSendError> {
         let action = AsyncTask::new(feed.id, recurring_fetch(feed));
-        let result = self.sender.send(action);
-
-        if let Err(e) = result {
-            println!("{}", e);
-        }
+        self.sender.send(action).map_err(|_| AppSendError)
     }
 
-    fn update(&self, feed: Feed) {
+    fn update(&self, feed: Feed) -> Result<(), AppSendError> {
         let action = AsyncTask::update(feed.id, recurring_fetch(feed));
-        let result = self.sender.send(action);
-
-        if let Err(e) = result {
-            println!("{}", e);
-        }
+        self.sender.send(action).map_err(|_| AppSendError)
     }
 
-    fn delete(&self, feed: Feed) {
+    fn delete(&self, feed: Feed) -> Result<(), AppSendError> {
         let action = AsyncTask::stop(feed.id);
-        let result = self.sender.send(action);
-
-        if let Err(e) = result {
-            println!("{}", e);
-        }
+        self.sender.send(action).map_err(|_| AppSendError)
     }
 }
