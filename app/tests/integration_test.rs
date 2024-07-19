@@ -2,17 +2,14 @@
 mod tests {
     use reqwest::blocking::Client;
     use serde_json::json;
-    use std::net::SocketAddr;
-    use std::thread;
-    use std::time::Duration;
-    use tokio::net::TcpListener;
-    use tokio::runtime::Builder;
+    use std::{net::SocketAddr, thread, time::Duration};
+    use tokio::{net::TcpListener, runtime::Builder};
 
-    use app::api;
-    use app::scheduler_interface::{build, Mode};
+    use app::{api, scheduler_interface::build};
 
-    fn run(mode: Mode) {
-        let interface = build(mode);
+    #[test]
+    fn test_run() {
+        let interface = build();
 
         thread::spawn(move || {
             let runtime = Builder::new_multi_thread().enable_io().build().unwrap();
@@ -48,15 +45,5 @@ mod tests {
                 assert!(false);
             }
         }
-    }
-
-    #[test]
-    fn async_run() {
-        run(Mode::Async);
-    }
-
-    #[test]
-    fn sync_run() {
-        run(Mode::Sync);
     }
 }

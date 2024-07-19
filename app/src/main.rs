@@ -1,10 +1,7 @@
 use std::net::SocketAddr;
 use tokio::{net::TcpListener, runtime::Builder};
 
-use app::{
-    api,
-    scheduler_interface::{build, Mode},
-};
+use app::{api, scheduler_interface::build};
 
 fn main() {
     // Initialize tracing subscriber for logging
@@ -13,7 +10,7 @@ fn main() {
     let address = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("Starting server on {}.", address);
 
-    let interface = build(Mode::Async);
+    let interface = build();
 
     // We use a runtime::Builder to specify the number of threads and
     // their name.

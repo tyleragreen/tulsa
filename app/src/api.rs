@@ -18,13 +18,19 @@ use crate::{
 };
 
 #[derive(Clone)]
-struct AppState {
+struct AppState<T>
+where
+    T: ToScheduler + Send + Sync + 'static,
+{
     next_feed_id: Arc<RwLock<usize>>,
     db: Arc<RwLock<HashMap<usize, Feed>>>,
-    scheduler_interface: Arc<dyn ToScheduler + Send + Sync>,
+    scheduler_interface: Arc<T>,
 }
 
-pub fn app(scheduler_interface: Arc<dyn ToScheduler + Send + Sync>) -> Router {
+pub fn app<T>(scheduler_interface: Arc<T>) -> Router
+where
+    T: ToScheduler + Send + Sync + 'static,
+{
     let state = AppState {
         next_feed_id: Arc::new(RwLock::new(1)),
         db: Arc::new(RwLock::new(HashMap::new())),
@@ -46,15 +52,18 @@ async fn status_handler() -> impl IntoResponse {
     Json(Status::new("OK"))
 }
 
-async fn post_handler(
-    state: State<AppState>,
+async fn post_handler<T>(
+    state: State<AppState<T>>,
     Json(CreateFeed {
         name,
         url,
         frequency,
         headers,
     }): Json<CreateFeed>,
-) -> Result<impl IntoResponse, StatusCode> {
+) -> Result<impl IntoResponse, StatusCode>
+where
+    T: ToScheduler + Send + Sync + 'static,
+{
     let id = *(state
         .next_feed_id
         .read()
@@ -81,10 +90,13 @@ async fn post_handler(
     Ok((StatusCode::CREATED, Json(feed)))
 }
 
-async fn get_handler(
+async fn get_handler<T>(
     Path(id): Path<usize>,
-    state: State<AppState>,
-) -> Result<impl IntoResponse, StatusCode> {
+    state: State<AppState<T>>,
+) -> Result<impl IntoResponse, StatusCode>
+where
+    T: ToScheduler + Send + Sync + 'static,
+{
     let feed = state
         .db
         .read()
@@ -96,16 +108,19 @@ async fn get_handler(
     Ok(Json(feed))
 }
 
-async fn put_handler(
+async fn put_handler<T>(
     Path(id): Path<usize>,
-    state: State<AppState>,
+    state: State<AppState<T>>,
     Json(CreateFeed {
         name,
         url,
         frequency,
         headers,
     }): Json<CreateFeed>,
-) -> impl IntoResponse {
+) -> impl IntoResponse
+where
+    T: ToScheduler + Send + Sync + 'static,
+{
     if state
         .db
         .read()
@@ -134,10 +149,13 @@ async fn put_handler(
     Ok(Json(feed))
 }
 
-async fn delete_handler(
+async fn delete_handler<T>(
     Path(id): Path<usize>,
-    state: State<AppState>,
-) -> Result<impl IntoResponse, StatusCode> {
+    state: State<AppState<T>>,
+) -> Result<impl IntoResponse, StatusCode>
+where
+    T: ToScheduler + Send + Sync + 'static,
+{
     let feed = state
         .db
         .read()
@@ -156,7 +174,10 @@ async fn delete_handler(
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn list_handler(state: State<AppState>) -> Result<impl IntoResponse, StatusCode> {
+async fn list_handler<T>(state: State<AppState<T>>) -> Result<impl IntoResponse, StatusCode>
+where
+    T: ToScheduler + Send + Sync + 'static,
+{
     let feeds: Vec<Feed> = state
         .db
         .read()
@@ -172,25 +193,30 @@ mod api_tests {
     #[cfg(not(feature = "use_dependencies"))]
     use crate::deps::mime;
 
-    use crate::scheduler_interface::{SchedulerInterface, TaskSender};
-    use tokio::net::TcpListener;
-    use tulsa::AsyncTask;
-
-    use super::*;
     use axum::{
         body::Body,
         http::{self, Request, StatusCode},
     };
-    use std::net::SocketAddr;
-    use std::sync::mpsc::SendError;
-    use std::sync::Mutex;
+    use std::{
+        net::SocketAddr,
+        sync::{mpsc::SendError, Mutex},
+    };
+    use tokio::net::TcpListener;
     use tower::ServiceExt; // for `oneshot`
+
+    use crate::scheduler_interface::{SchedulerInterface, TaskSend};
+    use tulsa::{AsyncTask, Task};
+
+    use super::*;
 
     struct MockSender<T> {
         tasks: Arc<Mutex<Vec<T>>>,
     }
 
-    impl<T> TaskSender<T> for MockSender<T> {
+    impl<T> TaskSend<T> for MockSender<T>
+    where
+        T: Task,
+    {
         fn send(&self, task: T) -> Result<(), SendError<T>> {
             self.tasks.lock().unwrap().push(task);
             Ok(())
