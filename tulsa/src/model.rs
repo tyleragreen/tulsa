@@ -86,6 +86,7 @@ impl SyncTask {
     }
 }
 
+/// An empty trait which allows for trait bounds to only allow `AsyncTask` or `SyncTask`.
 pub trait Task {}
 
 impl Task for AsyncTask {}

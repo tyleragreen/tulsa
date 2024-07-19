@@ -13,7 +13,7 @@ use crate::{
     models::Feed,
 };
 
-pub fn build() -> Arc<impl ToScheduler + Send + 'static> {
+pub fn build() -> Arc<impl ToScheduler + Send + Sync + 'static> {
     #[cfg(feature = "async_mode")]
     {
         let (sender, receiver) = mpsc::channel();
@@ -29,7 +29,7 @@ pub fn build() -> Arc<impl ToScheduler + Send + 'static> {
     }
 }
 
-/// An interface to send a `Task`.
+/// An interface to send a `Task`. This allows clients to mock a `Sender` for unit tests.
 pub trait TaskSend<T>
 where
     T: Task,
