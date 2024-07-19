@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use tokio::{net::TcpListener, runtime::Builder};
+use tracing::info;
 
 use app::{api, scheduler_interface::build};
 
@@ -8,7 +9,7 @@ fn main() {
     tracing_subscriber::fmt::init();
 
     let address = SocketAddr::from(([0, 0, 0, 0], 3000));
-    println!("Starting server on {}.", address);
+    info!("Starting server on {}.", address);
 
     let interface = build();
 
